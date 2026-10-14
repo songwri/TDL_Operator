@@ -6,9 +6,9 @@
  * 화면은 메모리의 Store.data 를 바로 그리고, 저장은 뒤에서 어댑터로 보낸다.
  */
 (function () {
-  const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'routes', 'transitions', 'manual', 'contacts', 'tourLogs', 'history'];
+  const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'routes', 'transitions', 'manual', 'contacts', 'tourLogs', 'history', 'guides', 'guideSteps'];
   // 시트에는 모든 값이 글자로 저장되므로 읽을 때 형을 되돌린다
-  const NUM = { stations: ['x', 'y', 'minutes', 'order'], actions: ['order'], specs: ['order'], manual: ['order'], tourLogs: ['headcount', 'minutes'] };
+  const NUM = { stations: ['x', 'y', 'minutes', 'order'], actions: ['order'], specs: ['order'], manual: ['order'], tourLogs: ['headcount', 'minutes'], guides: ['order'], guideSteps: ['order'] };
   const BOOL = { stations: ['equipment', 'optional'], qa: ['common'] };
   // 배포 설정(config.js)의 주소가 있으면 항상 그것을 쓴다. 기기에 남은 예전 입력값보다 우선.
   const cfgUrl = () => String((window.TDL_CONFIG || {}).scriptUrl || '').trim();
@@ -24,6 +24,7 @@
     del(k) { try { sessionStorage.removeItem(k); } catch (e) { /* 무시 */ } },
   };
   const idField = (t) => (t === 'settings' ? 'key' : 'id');
+  const IMG_CACHE = 'tdl-img-v1';
   const today = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -162,6 +163,7 @@
     },
     logout() {
       ss.del('tdl.pw'); ls.del('tdl.pw'); ls.del('tdl.cache'); ls.del('tdl.cacheHash');
+      this.images = {}; try { if (window.caches) caches.delete(IMG_CACHE); } catch (e) { /* 무시 */ }
       this.password = ''; this.lock(true);
       this.status = this.adapter.kind === 'local' ? 'setup' : 'login';
       this.data = normalize({});
@@ -188,6 +190,26 @@
         this.setSync('saved');
         this.emit();
       } catch (e) { this.setSync('error', e.message); }
+    },
+
+    // ───────── 매뉴얼 이미지 (구글 드라이브 → Apps Script, 기기에 캐시) ─────────
+    images: {},
+    async image(name) {
+      if (!name) return null;
+      if (this.images[name]) return this.images[name];
+      const key = location.origin + '/__tdl_img/' + encodeURIComponent(name);
+      try {
+        if (window.caches) {
+          const hit = await (await caches.open(IMG_CACHE)).match(key);
+          if (hit) return (this.images[name] = await hit.text());
+        }
+      } catch (e) { /* 캐시 사용 불가 — 무시 */ }
+      if (this.adapter.kind !== 'sheet') throw new Error('시트에 연결해야 이미지를 볼 수 있습니다');
+      const res = await SheetAdapter.call({ action: 'image', name });
+      const url = `data:${res.mime || 'image/jpeg'};base64,${res.data}`;
+      this.images[name] = url;
+      try { if (window.caches) await (await caches.open(IMG_CACHE)).put(key, new Response(url)); } catch (e) { /* 무시 */ }
+      return url;
     },
 
     onChange(fn) { this.listeners.push(fn); },

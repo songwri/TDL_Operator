@@ -240,7 +240,7 @@
   App.playRoute = play;
 
   // ───────── 더보기: 데이터 · 설정 · 변경 이력 ─────────
-  const TABLE_LABEL = { transitions: '이동 멘트', stations: '장소·대사', actions: '장소별 행동', videos: '영상', specs: '설비 스펙', qa: 'Q&A', routes: '동선', manual: '투어 전/후 매뉴얼', contacts: '비상연락망', tourLogs: '투어 기록', history: '변경 이력', settings: '설정' };
+  const TABLE_LABEL = { guides: '절차 가이드', guideSteps: '가이드 단계', transitions: '이동 멘트', stations: '장소·대사', actions: '장소별 행동', videos: '영상', specs: '설비 스펙', qa: 'Q&A', routes: '동선', manual: '투어 전/후 매뉴얼', contacts: '비상연락망', tourLogs: '투어 기록', history: '변경 이력', settings: '설정' };
   App.views.more = {
     render() {
       const can = Store.isUnlocked();

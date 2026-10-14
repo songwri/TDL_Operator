@@ -42,7 +42,9 @@
       const list = Store.where('actions', (a) => a.stationId === st.id && (a.tourType === 'all' || a.tourType === prefs.tourType)).sort((a, b) => a.order - b.order);
       const biz = st.id === 's2' ? Panels.business() : '';
       const vids = Panels.videos(st);
-      return `${biz}${vids}
+      const gs = App.guidesFor ? App.guidesFor(st.id, ['field', 'etc']) : [];
+      const guideBox = gs.length ? `<div class="card soft"><h4>시연 조작 가이드</h4>${gs.map(App.guideLink).join('')}</div>` : '';
+      return `${guideBox}${biz}${vids}
         <ul class="checklist">${list.map((a) => `<li>
           <label class="check"><input type="checkbox" data-check="${a.id}"${checks && checks[a.id] ? ' checked' : ''}><span>${esc(a.text)}</span></label>
           ${a.tourType !== 'all' ? `<span class="badge">${esc(a.tourType)}</span>` : ''}${badgeRecent(a)}

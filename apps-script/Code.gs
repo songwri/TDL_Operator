@@ -17,10 +17,12 @@
  */
 
 const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'routes', 'transitions',
-  'manual', 'contacts', 'tourLogs', 'history'];
+  'manual', 'contacts', 'tourLogs', 'history', 'guides', 'guideSteps'];
+const IMAGE_FOLDER = 'TDL_manual_images';        // 매뉴얼 슬라이드 이미지 폴더 (구글 드라이브)
+const IMAGE_ZIP = 'tdl-manual-images.zip';
 const TZ = 'Asia/Seoul';
 
-const CODE_VERSION = '2026-10-14.4';
+const CODE_VERSION = '2026-10-14.5';
 
 // 웹 앱 주소를 브라우저로 열면 이 화면이 나옵니다 — 배포·코드 버전·설정 여부 확인용 (비밀번호 값은 표시하지 않음)
 function doGet() {
@@ -54,6 +56,8 @@ function handlePost_(e) {
     switch (req.action) {
       case 'load':
         return json_({ ok: true, data: loadAll_(), serverTime: now_() });
+      case 'image':
+        return json_(image_(req.name));
       case 'checkEdit':
         if (!isEditor) Utilities.sleep(500);
         return json_({ ok: isEditor, error: isEditor ? '' : 'wrong_edit_password' });
@@ -214,6 +218,7 @@ function appendHistory_(table, rowId, action, before, after, editor) {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('TDL 도구')
     .addItem('Drive의 tdl-seed.json 가져오기', 'importSeedFromDrive')
+    .addItem('매뉴얼 이미지 zip 풀기', 'unzipImagesFromDrive')
     .addItem('설정 점검', 'checkSetupUi')
     .addToUi();
 }
@@ -239,12 +244,55 @@ function importSeedFromDrive() {
   notify_('가져오기 완료 (' + when + ' 파일)\n' + counts);
 }
 
+// 드라이브의 tdl-manual-images.zip(가장 최근 파일)을 풀어 TDL_manual_images 폴더에 넣는다 (같은 이름은 교체)
+function unzipImagesFromDrive() {
+  const files = DriveApp.getFilesByName(IMAGE_ZIP);
+  let latest = null;
+  while (files.hasNext()) { const f = files.next(); if (!latest || f.getLastUpdated() > latest.getLastUpdated()) latest = f; }
+  if (!latest) return notify_('구글 드라이브에서 ' + IMAGE_ZIP + ' 파일을 찾지 못했습니다. 드라이브에 올린 뒤 다시 실행하세요.');
+  const blob = latest.getBlob().setContentType('application/zip');
+  const parts = Utilities.unzip(blob);
+  const folder = imageFolder_(true);
+  let n = 0;
+  parts.forEach((b) => {
+    const name = b.getName().split('/').pop();
+    if (!/^[\w.-]+\.(jpg|jpeg|png)$/i.test(name)) return;
+    const old = folder.getFilesByName(name);
+    while (old.hasNext()) old.next().setTrashed(true);
+    folder.createFile(b.setName(name));
+    n++;
+  });
+  notify_('매뉴얼 이미지 ' + n + '장을 드라이브 폴더 ‘' + IMAGE_FOLDER + '’에 넣었습니다.');
+}
+
+function imageFolder_(create) {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('IMAGE_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* 지워졌으면 다시 찾기 */ } }
+  const it = DriveApp.getFoldersByName(IMAGE_FOLDER);
+  const folder = it.hasNext() ? it.next() : (create ? DriveApp.createFolder(IMAGE_FOLDER) : null);
+  if (folder) props.setProperty('IMAGE_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+// 앱이 요청한 매뉴얼 이미지를 base64로 돌려준다 (접속 비밀번호 확인 후에만 호출됨)
+function image_(name) {
+  if (!/^[\w.-]+\.(jpg|jpeg|png)$/i.test(String(name || ''))) return { ok: false, error: 'bad_name' };
+  const folder = imageFolder_(false);
+  if (!folder) return { ok: false, error: 'image_folder_missing' };
+  const it = folder.getFilesByName(name);
+  if (!it.hasNext()) return { ok: false, error: 'image_not_found' };
+  const b = it.next().getBlob();
+  return { ok: true, mime: b.getContentType() || 'image/jpeg', data: Utilities.base64Encode(b.getBytes()) };
+}
+
 function checkSetupUi() {
   const all = PropertiesService.getScriptProperties().getProperties();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lines = ['접속 비밀번호(ACCESS_PASSWORD): ' + (clean_(all.ACCESS_PASSWORD) ? '설정됨' : '없음 — 꼭 추가'),
     '편집 비밀번호(EDIT_PASSWORD): ' + (clean_(all.EDIT_PASSWORD) ? '설정됨' : '없음 — 기본값 0000'),
-    '코드 버전: ' + CODE_VERSION, ''];
+    '코드 버전: ' + CODE_VERSION,
+    '매뉴얼 이미지: ' + (function () { const f = imageFolder_(false); if (!f) return '폴더 없음'; let c = 0; const it = f.getFiles(); while (it.hasNext()) { it.next(); c++; } return c + '장'; })(), ''];
   TABLES.forEach((t) => { const sh = ss.getSheetByName(t); lines.push(t + ': ' + (sh ? Math.max(0, sh.getLastRow() - 1) + '행' : '탭 없음')); });
   notify_(lines.join('\n'));
 }

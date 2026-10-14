@@ -4,6 +4,7 @@
 
   const SECTIONS = {
     pre: [
+      ['prep', '사전 준비 항목', '시연 매뉴얼의 사전 준비 항목'],
       ['order', '사전 오더 준비', '이 설비에 미리 올려 둘 오더 — 종류, 수량, SKU, 시연 시나리오'],
       ['power', '전원 ON 절차', '켜는 순서대로 한 줄에 한 단계씩'],
       ['upload', '오더 업로드 경로', '어떤 사이트를 어떤 순서로 경유해 무엇을 누르는지'],
@@ -47,7 +48,7 @@
     const items = Store.where('manual', (m) => m.phase === phase && m.stationId === st.id && (m.tourType === 'all' || m.tourType === tourType));
     const doneN = items.filter((m) => checks[m.id]).length;
     const written = items.filter((m) => m.body).length;
-    const open = checks._open && st.id in checks._open ? checks._open[st.id] : st.id === 's6';
+    const open = checks._open && st.id in checks._open ? checks._open[st.id] : items.some((m) => m.section === 'prep');
     return `<details class="equip card" ${open ? 'open' : ''} data-equip="${st.id}">
       <summary><span class="st-no">${esc(st.no)}</span><span class="st-body"><b>${esc(st.name)}</b>
         <small>${doneN}/${items.length} 완료 · 작성 ${written}/${items.length}</small></span>
@@ -58,10 +59,36 @@
             ${badgeRecent(m)}${m.tourType !== 'all' ? `<span class="badge">${esc(m.tourType)}</span>` : ''}
             ${App.editBtn(`data-edit-manual="${m.id}"`, '✎')}</header>
           ${key === 'upload' ? methodFlow(m.method) : ''}
-          ${bodyHtml(m, hint)}
+          ${key === 'prep' ? prepHtml(m) : bodyHtml(m, hint)}
         </section>`).join('')).join('')}
       ${App.editBtn(`data-add-manual="${phase}|${st.id}"`, '+ 항목 추가')}
     </details>`;
+  }
+
+  // 사전 준비 항목: 시스템 · 비고 · 관련 절차 가이드
+  function prepHtml(m) {
+    const gids = String(m.guideIds || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const gs = gids.map((g) => Store.get('guides', g)).filter(Boolean);
+    return `<div class="prep">
+      ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
+      ${m.body ? `<p class="small">${esc(m.body)}</p>` : ''}
+      ${gs.length ? `<div class="prep-links">${gs.map((g) => `<a class="btn small" href="#/guide/${esc(g.id)}">절차: ${esc(g.title)} ›</a>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  // 절차 가이드 목록 (사전 준비 매뉴얼)
+  function guidesHtml() {
+    const all = App.guidesFor(null);
+    if (!all.length) return '';
+    const ov = Store.setting('prepOverviewImage', '');
+    const group = (ph, title) => {
+      const gs = all.filter((g) => g.phase === ph);
+      return gs.length ? `<div class="g-group"><h4>${title}</h4>${gs.map(App.guideLink).join('')}</div>` : '';
+    };
+    return `<div class="card guides-card"><h3>시연 매뉴얼 절차</h3>
+      <p class="small muted">메뉴 위치가 표시된 매뉴얼 화면을 단계별로 보여 줍니다.</p>
+      ${ov ? `<details class="ov"><summary>사전 준비 항목 한눈에 보기 (매뉴얼 표)</summary>${App.shot(ov)}</details>` : ''}
+      <div class="g-groups">${group('pre', '사전 준비 (시스템)')}${group('field', '현장 조작')}${group('etc', '기타 가이드')}</div></div>`;
   }
 
   function commonList(phase, checks, tourType) {
@@ -95,9 +122,9 @@
         <div class="seg" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-mtype="${t}" class="${tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div></header>
       <div class="progress card"><div class="bar"><span style="width:${all.length ? Math.round((doneN / all.length) * 100) : 0}%"></span></div>
         <span><b>${doneN}</b> / ${all.length} 완료</span><button class="btn small ghost" data-mreset>오늘 체크 초기화</button></div>
-      ${isPre ? `<div class="card soft legend"><h4>오더 업로드 기본 흐름</h4>${methodFlow('WMS→WCS')}<small class="muted">설비마다 WMS 경유 또는 직접 업로드 방식이 다릅니다. 설비 카드의 “오더 업로드 경로”에서 지정합니다.</small></div>` : ''}
+      ${isPre ? guidesHtml() : ''}
       <div class="card"><h3>공통 ${isPre ? '준비' : '정리'}</h3>${commonList(phase, checks, tourType)}</div>
-      <h3 class="section-title">설비별 ${isPre ? '준비 (오더 · 전원 ON · 업로드 · 오류 대처)' : '정리 (정리 · 전원 OFF · 확인)'}</h3>
+      <h3 class="section-title">설비별 ${isPre ? '준비' : '정리 (정리 · 전원 OFF · 확인)'}</h3>
       <div class="equip-list">${equip.map((st) => equipmentCard(phase, st, checks, tourType)).join('')}</div>
       ${contactsHtml()}
       ${!isPre ? logsHtml() : ''}
@@ -167,6 +194,11 @@
       { key: 'tourType', label: '적용 투어', type: 'select', options: [['all', '전체'], ['일반', '일반 고객만'], ['VIP', 'VIP만']] },
     ];
     if (m.section === 'upload' || (!id && m.stationId !== 'common')) fields.splice(2, 0, { key: 'method', label: '업로드 방식 (오더 업로드 경로일 때)', type: 'select', options: METHODS });
+    if (m.section === 'prep') {
+      fields[2] = { key: 'body', label: '비고', type: 'textarea', rows: 3 };
+      fields.splice(2, 0, { key: 'system', label: '시스템', placeholder: '예: GO Wing & GSI' },
+        { key: 'guideIds', label: '관련 절차 가이드 id (쉼표로 구분)', hint: '예: g_in,g_out — 더보기가 아닌 투어 전 페이지의 가이드 목록 주소(#/guide/…) 끝 부분' });
+    }
     const res = await form(id ? '매뉴얼 항목 수정' : '매뉴얼 항목 추가', fields, m, id ? { danger: '삭제' } : null);
     if (!res) return;
     if (res._action === 'delete') Store.remove('manual', id); else Store.upsert('manual', Object.assign({}, m, res));
@@ -187,6 +219,7 @@
 
   function mount(phase) {
     return (root) => {
+      App.loadShots(root);
       root.addEventListener('change', (e) => {
         const c = e.target.closest('[data-mcheck]');
         if (!c) return;

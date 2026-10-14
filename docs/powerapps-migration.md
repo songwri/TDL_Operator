@@ -1,0 +1,24 @@
+# PowerApps 이관 가이드
+
+웹앱의 데이터는 모두 **평평한 테이블**이며, 지금은 구글 시트 TDL_Operator의 탭 하나가 테이블 하나입니다. 더보기 → “PowerApps 이관용 CSV”에서 테이블별 CSV를 받아
+SharePoint 목록(또는 Dataverse 테이블)으로 가져오면 됩니다. 모든 테이블에 `updatedAt`(날짜), `updatedBy`(텍스트)가 있습니다.
+
+| 목록 | 열 | 비고 |
+|---|---|---|
+| **stations** 장소 | id, no, name, zone(비전홀/이노베이션필드/연계구간), x, y(도면 좌표 0–780 × 0–900), minutes, equipment(예/아니요), optional, scriptFull(여러 줄), scriptShort(여러 줄), tips, order | 도면 핀 위치와 나레이션 |
+| **actions** 장소별 행동 | id, stationId→stations, text, tourType(all/일반/VIP), order | 체크 탭 |
+| **videos** 영상 | id, stationId, name, purpose, note | |
+| **specs** 설비 스펙 | id, stationId, group(한 장소에 설비가 여럿일 때, 예: 휴머노이드), field, value, status(확정/확인필요), note, order | 행 하나 = 스펙 한 칸. 항목 목록은 settings.specFields |
+| **qa** 질문·답변 | id, stationId, topic, question, answer, common(예/아니요), status, source, createdAt, createdBy | |
+| **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
+| **transitions** 동선별 이동 멘트 | id, routeId→routes, fromStationId, toStationId, text, status | 같은 장소라도 동선마다 다른 멘트 |
+| **manual** 투어 전/후 매뉴얼 | id, phase(pre/post), stationId(또는 common), section(order/power/upload/error/cleanup/check), title, body(여러 줄), method(WMS→WCS/직접/기타), tourType, order | 오류 대처 body는 “증상 \| 조치” 줄 |
+| **contacts** 비상연락망 | id, role, org, name, phone, note | |
+| **tourLogs** 투어 기록 | id, date, customer, tourType, guide, routeId, headcount, minutes, notes, createdAt, createdBy | |
+| **history** 변경 이력 | id, table, rowId, action, before(JSON), after(JSON), at, by | SharePoint 자체 버전 기록으로 대체 가능 |
+| **settings** 설정 | key, value | recentDays, specFields(JSON 배열), businesses(JSON 배열) |
+
+## 화면 대응
+- 투어 모드(휴대폰) → 캔버스 앱 휴대폰 레이아웃: stations를 routes.points 순서로 Gallery 표시, 이전/다음 버튼
+- 도면 → 배경 이미지 + 핀 컨트롤의 X/Y를 stations.x/y × (화면폭/780)으로 배치
+- 접속·편집 비밀번호(Apps Script 스크립트 속성) → PowerApps에서는 SharePoint 권한(열람/편집 그룹)으로 대체 권장

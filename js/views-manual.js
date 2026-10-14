@@ -121,7 +121,7 @@
     const prefs = App.prefs.load();
     let draft = {};
     try { draft = JSON.parse(sessionStorage.getItem('tdl.logDraft') || '{}'); } catch (e) { draft = {}; }
-    const l = id ? Store.get('tourLogs', id) : { id: '', date: Store.today(), customer: '', tourType: prefs.tourType, guide: prefs.guide || Store.editor, routeId: draft.routeId || prefs.routeId, headcount: '', minutes: draft.minutes || '', notes: '' };
+    const l = id ? Store.get('tourLogs', id) : { id: '', date: Store.today(), customer: '', tourType: prefs.tourType, guide: Store.editor, routeId: draft.routeId || prefs.routeId, headcount: '', minutes: draft.minutes || '', notes: '' };
     const stations = App.stationsSorted();
     const fields = [
       { key: 'date', label: '날짜', type: 'date' },

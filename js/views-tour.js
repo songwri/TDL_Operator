@@ -17,7 +17,7 @@
           ${App.editBtn(`data-edit-station="${st.id}"`, '✎ 대사 수정')}
         </div>
         ${st.tips ? `<div class="tip"><b>가이드 팁</b><br>${esc(st.tips).replace(/\n/g, "<br>")}</div>` : ''}
-        <div class="narration" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, { guide: prefs.guide }) : fallback ? `<p class="muted">이 버전은 비어 있어 다른 버전을 보여줍니다.</p>${narration(fallback, { guide: prefs.guide })}` : '<p class="muted">대사가 아직 없습니다.</p>'}</div>
+        <div class="narration" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, {}) : fallback ? `<p class="muted">이 버전은 비어 있어 다른 버전을 보여줍니다.</p>${narration(fallback, {})}` : '<p class="muted">대사가 아직 없습니다.</p>'}</div>
         ${Panels.transition(st, prefs)}`;
     },
 
@@ -40,7 +40,7 @@
 
     actions(st, prefs, checks) {
       const list = Store.where('actions', (a) => a.stationId === st.id && (a.tourType === 'all' || a.tourType === prefs.tourType)).sort((a, b) => a.order - b.order);
-      const biz = st.id === 's2' ? Panels.business(prefs) : '';
+      const biz = st.id === 's2' ? Panels.business() : '';
       const vids = Panels.videos(st);
       return `${biz}${vids}
         <ul class="checklist">${list.map((a) => `<li>
@@ -50,12 +50,11 @@
         ${App.editBtn(`data-add-action="${st.id}"`, '+ 행동 추가')}`;
     },
 
-    business(prefs) {
+    business() {
       const all = Store.settingJson('businesses', []);
-      const sel = prefs.biz || [];
-      return `<div class="card soft"><h4>오늘 설명할 비즈니스</h4>
-        <div class="chips">${all.map((b) => `<span class="chip${sel.includes(b) ? ' on' : ''}">${esc(b)}</span>`).join('')}</div>
-        <small class="muted">${sel.length ? '고객 사업영역에 맞춰 강조된 화면 앞에서 설명하세요.' : '투어 시작 화면에서 고객 사업영역을 고르면 여기 강조됩니다.'}</small></div>`;
+      return `<div class="card soft"><h4>LX판토스 비즈니스 화면 (6개)</h4>
+        <div class="chips">${all.map((b) => `<span class="chip">${esc(b)}</span>`).join('')}</div>
+        <small class="muted">방문 고객사의 사업영역에 맞는 화면 앞에서 설명하세요.</small></div>`;
     },
 
     videos(st) {
@@ -100,9 +99,10 @@
             const r = get(f);
             const empty = !r || !r.value;
             if (empty && !Panels.showEmpty && !warn(r)) return '';
-            return `<div class="spec-row${empty ? ' empty' : ''}${warn(r) ? ' warn' : ''}${f === '제조사 공개 사양' ? ' wide' : ''}">
+            const ref = f === '참고 · 비교';
+            return `<div class="spec-row${empty ? ' empty' : ''}${warn(r) ? ' warn' : ''}${f === '제조사 공개 사양' || ref ? ' wide' : ''}${ref ? ' ref' : ''}">
               <dt>${esc(f)} ${badges(r)}</dt>
-              <dd>${empty ? '<span class="muted">미입력</span>' : Panels.specValue(r.value, f === '제조사 공개 사양')}
+              <dd>${empty ? '<span class="muted">미입력</span>' : Panels.specValue(r.value, f === '제조사 공개 사양' || ref)}
                 ${r && r.note ? `<small class="note">${esc(r.note)}</small>` : ''}</dd>
               ${edit(g, f)}</div>`;
           }).join('')}</dl>
@@ -283,12 +283,10 @@
   App.views.tour = {
     render() {
       const prefs = App.prefs.load();
-      const routes = Store.all('routes');
       const route = App.currentRoute();
       const order = App.stopOrder(route);
       const stops = App.routeStops(route).map((id) => Store.get('stations', id)).filter(Boolean);
       const others = App.stationsSorted().filter((s) => !order[s.id]);
-      const biz = Store.settingJson('businesses', []);
       const card = (s) => `<a class="st-card" href="#/station/${s.id}">
           <span class="st-no${s.optional ? ' opt' : ''}">${esc(s.no)}</span>
           <span class="st-body"><b>${esc(s.name)}</b><small>${esc(s.zone)} · ${esc(s.minutes)}분${App.pendingCount(s.id) ? ` · <span class="warn-text">확인필요 ${App.pendingCount(s.id)}</span>` : ''}</small></span>
@@ -297,11 +295,8 @@
         <div class="tour-setup card">
           <div class="row">
             <div class="seg big" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-type="${t}" class="${prefs.tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div>
-            <select data-route aria-label="동선 선택">${routes.map((r) => `<option value="${r.id}"${r.id === route.id ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
+            <span class="route-name muted">${esc(route.name)}</span>
           </div>
-          <div class="field-inline"><label>고객 사업영역</label>
-            <div class="chips">${biz.map((b) => `<button class="chip${(prefs.biz || []).includes(b) ? ' on' : ''}" data-biz="${esc(b)}">${esc(b)}</button>`).join('')}</div></div>
-          <div class="field-inline"><label for="guide-name">가이드 이름</label><input id="guide-name" data-guide value="${esc(prefs.guide)}" placeholder="인사·마무리 멘트에 들어갑니다"></div>
           <div class="row summary"><span>정거장 <b>${stops.length}</b>곳 · 예상 <b>${App.minutesOf(route)}</b>분</span>
             <a class="btn primary big" href="#/run">▶ 투어 모드 시작</a></div>
           ${route.description ? `<small class="muted">${esc(route.description)}</small>` : ''}
@@ -335,8 +330,6 @@
       root.addEventListener('keydown', (e) => { const pin = e.target.closest('[data-station]'); if (pin && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); App.navigate('#/station/' + pin.dataset.station); } });
       root.addEventListener('change', (e) => {
         const p = App.prefs.load();
-        if (e.target.matches('[data-route]')) { p.routeId = e.target.value; App.prefs.save(p); App.rerender(); }
-        if (e.target.matches('[data-guide]')) { p.guide = e.target.value.trim(); App.prefs.save(p); }
       });
     },
   };
@@ -409,7 +402,7 @@
           <button class="icon-btn" data-ask aria-label="받은 질문 메모">＋Q</button></header>
         <div class="run-progress"><span style="width:${Math.round((Math.min(s.idx, stops.length) / stops.length) * 100)}%"></span></div>`;
       if (done) {
-        const closing = (route.closing || '').replace(/\{가이드\}/g, prefs.guide || '○○○');
+        const closing = (route.closing || '').replace(/\{가이드\}/g, '(본인 이름)');
         return `<section class="run">${top}
           <div class="run-body"><h2 class="run-st">투어 마무리</h2>
             <div class="narration closing" style="--nar-size:${(prefs.font || 18) + 2}px"><p>${esc(closing)}</p></div>

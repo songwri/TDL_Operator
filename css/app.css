@@ -402,3 +402,10 @@ code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-
 .transition { border: 1px solid var(--cue-bg); background: color-mix(in srgb, var(--cue-bg) 45%, transparent); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; max-width: 38em; }
 .transition .tr-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: var(--cue-ink); font-weight: 700; font-size: var(--fs-sm); }
 .transition p { margin: 0; font-size: var(--nar-size, 18px); line-height: 1.8; }
+
+/* 다른 설비와 비교한 참고 내용 */
+.spec-row.ref { background: color-mix(in srgb, var(--cue-bg) 55%, transparent); border-top: 0; border-radius: 12px; padding: 12px 14px; margin-block: 6px; }
+.spec-row.ref dt { color: var(--cue-ink); }
+.spec-row.ref .spec-lines li { border-bottom-color: color-mix(in srgb, var(--cue-ink) 18%, transparent); }
+.spec-row.ref .spec-lines .k { color: var(--cue-ink); }
+.route-name { font-size: var(--fs-sm); font-weight: 600; }

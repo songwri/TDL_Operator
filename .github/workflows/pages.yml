@@ -1,0 +1,49 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 배포 폴더 만들기 + Apps Script URL 주입
+        env:
+          # 저장소 Settings → Secrets and variables → Actions → Variables → SCRIPT_URL
+          SCRIPT_URL: ${{ vars.SCRIPT_URL }}
+        run: |
+          mkdir -p _site
+          cp -r index.html config.js css js .nojekyll _site/
+          if [ -n "$SCRIPT_URL" ]; then
+            case "$SCRIPT_URL" in
+              https://script.google.com/*) ;;
+              *) echo "::error::SCRIPT_URL 은 https://script.google.com/ 로 시작하는 웹 앱 URL(…/exec)이어야 합니다"; exit 1 ;;
+            esac
+            printf 'window.TDL_CONFIG = { scriptUrl: %s };\n' "$(printf '%s' "$SCRIPT_URL" | jq -R .)" > _site/config.js
+            echo "SCRIPT_URL 변수로 config.js 를 만들었습니다"
+          else
+            echo "::warning::SCRIPT_URL 변수가 없어 저장소의 config.js 를 그대로 사용합니다"
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -20,7 +20,7 @@ const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'rou
   'manual', 'contacts', 'tourLogs', 'history'];
 const TZ = 'Asia/Seoul';
 
-const CODE_VERSION = '2026-10-14.3';
+const CODE_VERSION = '2026-10-14.4';
 
 // 웹 앱 주소를 브라우저로 열면 이 화면이 나옵니다 — 배포·코드 버전·설정 여부 확인용 (비밀번호 값은 표시하지 않음)
 function doGet() {
@@ -203,6 +203,61 @@ function appendHistory_(table, rowId, action, before, after, editor) {
     at: now_(), by: editor || '',
   };
   sh.getRange(sh.getLastRow() + 1, 1, 1, hs.length).setNumberFormat('@').setValues([hs.map((h) => cell_(rec[h]))]);
+}
+
+/* ───────── 시트 메뉴: TDL 도구 ─────────
+ * 시트를 열면 위쪽 메뉴에 'TDL 도구'가 생깁니다 (웹 브라우저의 구글 시트에서 보입니다. 휴대폰·패드 시트 앱에는 표시되지 않음).
+ *  - Drive의 tdl-seed.json 가져오기: 구글 드라이브에 올린 tdl-seed.json(가장 최근 파일)으로 모든 탭을 새로 씁니다.
+ *  - 설정 점검: 비밀번호 설정 여부와 탭별 행 수를 보여 줍니다.
+ * 메뉴가 안 보이면 Apps Script 편집기에서 함수 'importSeedFromDrive' 를 골라 ▶ 실행해도 됩니다.
+ */
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('TDL 도구')
+    .addItem('Drive의 tdl-seed.json 가져오기', 'importSeedFromDrive')
+    .addItem('설정 점검', 'checkSetupUi')
+    .addToUi();
+}
+
+const SEED_FILE_NAME = 'tdl-seed.json';
+
+function importSeedFromDrive() {
+  const files = DriveApp.getFilesByName(SEED_FILE_NAME);
+  let latest = null;
+  while (files.hasNext()) {
+    const f = files.next();
+    if (!latest || f.getLastUpdated() > latest.getLastUpdated()) latest = f;
+  }
+  if (!latest) return notify_('구글 드라이브에서 ' + SEED_FILE_NAME + ' 파일을 찾지 못했습니다. 드라이브에 파일을 올린 뒤 다시 실행하세요.');
+  let data;
+  try { data = JSON.parse(latest.getBlob().getDataAsString('UTF-8')); } catch (e) { return notify_(SEED_FILE_NAME + ' 파일을 읽지 못했습니다: ' + e.message); }
+  if (!data || !Array.isArray(data.stations)) return notify_('TDL 데이터 파일이 아닙니다 (stations 표가 없음).');
+  const when = Utilities.formatDate(latest.getLastUpdated(), TZ, 'yyyy-MM-dd HH:mm');
+  if (!confirm_('드라이브의 ' + SEED_FILE_NAME + ' (' + when + ' 수정)로 모든 탭을 새로 씁니다. 지금 시트 내용은 지워집니다. 계속할까요?')) return;
+  const res = withLock_(() => importAll_(data));
+  if (!res.ok) return notify_('가져오기 실패: ' + res.error);
+  const counts = TABLES.map((t) => t + ' ' + (data[t] || []).length).join(', ');
+  notify_('가져오기 완료 (' + when + ' 파일)\n' + counts);
+}
+
+function checkSetupUi() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lines = ['접속 비밀번호(ACCESS_PASSWORD): ' + (clean_(all.ACCESS_PASSWORD) ? '설정됨' : '없음 — 꼭 추가'),
+    '편집 비밀번호(EDIT_PASSWORD): ' + (clean_(all.EDIT_PASSWORD) ? '설정됨' : '없음 — 기본값 0000'),
+    '코드 버전: ' + CODE_VERSION, ''];
+  TABLES.forEach((t) => { const sh = ss.getSheetByName(t); lines.push(t + ': ' + (sh ? Math.max(0, sh.getLastRow() - 1) + '행' : '탭 없음')); });
+  notify_(lines.join('\n'));
+}
+
+// 시트 화면에서 실행하면 팝업으로, 편집기에서 실행하면 실행 로그로 알림
+function notify_(msg) {
+  try { SpreadsheetApp.getUi().alert('TDL 도구', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { Logger.log(msg); }
+}
+function confirm_(msg) {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    return ui.alert('TDL 도구', msg, ui.ButtonSet.YES_NO) === ui.Button.YES;
+  } catch (e) { Logger.log(msg + ' → 편집기에서 실행해 확인 없이 진행합니다.'); return true; }
 }
 
 /* ───────── 설정 점검 ─────────

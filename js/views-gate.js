@@ -68,13 +68,13 @@
           Store.status = 'login'; App.render();
         } else if (f.matches('[data-login]')) {
           busy(f, true);
-          const r = await Store.login(f.pw.value, f.remember.checked);
+          const r = await Store.login(f.pw.value.trim(), f.remember.checked);
           if (!r.ok) { msg = r.error; App.render(); }
         } else if (f.matches('[data-import]')) {
           busy(f, true);
           try {
             const text = await readFile(f.file);
-            const u = await Store.unlock(f.epw.value, f.editor.value.trim());
+            const u = await Store.unlock(f.epw.value.trim(), f.editor.value.trim());
             if (!u.ok) throw new Error(u.error);
             await Store.importAll(text);
             toast('초기 데이터를 시트에 올렸습니다');

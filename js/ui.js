@@ -105,7 +105,7 @@
       { key: 'editor', label: '작성자 이름', required: true, hint: '수정 이력에 이름이 남습니다' },
     ], { editor: Store.editor }, { submit: '편집 시작' });
     if (!res) return false;
-    const r = await Store.unlock(res.password, res.editor);
+    const r = await Store.unlock(res.password.trim(), res.editor);
     if (!r.ok) { toast(r.error); return false; }
     toast(`${res.editor} 님, 편집 모드가 켜졌습니다`);
     return true;

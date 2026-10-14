@@ -28,11 +28,11 @@ function doPost(e) {
   let req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
   const props = PropertiesService.getScriptProperties();
-  const access = props.getProperty('ACCESS_PASSWORD');
-  const edit = props.getProperty('EDIT_PASSWORD') || '0000';
+  const access = clean_(props.getProperty('ACCESS_PASSWORD'));
+  const edit = clean_(props.getProperty('EDIT_PASSWORD')) || '0000';
   if (!access) return json_({ ok: false, error: 'not_configured' });
-  if (req.password !== access) { Utilities.sleep(700); return json_({ ok: false, error: 'wrong_password' }); }
-  const isEditor = req.editPassword === edit;
+  if (clean_(req.password) !== access) { Utilities.sleep(700); return json_({ ok: false, error: 'wrong_password' }); }
+  const isEditor = clean_(req.editPassword) === edit;
   const needEdit = () => json_({ ok: false, error: 'wrong_edit_password' });
 
   try {
@@ -190,7 +190,36 @@ function appendHistory_(table, rowId, action, before, after, editor) {
   sh.getRange(sh.getLastRow() + 1, 1, 1, hs.length).setNumberFormat('@').setValues([hs.map((h) => cell_(rec[h]))]);
 }
 
+/* ───────── 설정 점검 ─────────
+ * Apps Script 편집기 위쪽에서 함수 'checkSetup' 을 고르고 ▶ 실행 → 아래 '실행 로그'에서 결과 확인.
+ * 비밀번호 값 자체는 표시하지 않고, 길이와 공백·따옴표 여부만 알려 줍니다.
+ */
+function checkSetup() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  Logger.log('등록된 스크립트 속성 이름: ' + (Object.keys(all).map((k) => '[' + k + ']').join(', ') || '(없음)'));
+  ['ACCESS_PASSWORD', 'EDIT_PASSWORD'].forEach((k) => {
+    const v = all[k];
+    if (v == null) { Logger.log(k + ': 없음' + (k === 'EDIT_PASSWORD' ? ' → 기본값 0000 사용' : ' → 꼭 추가해야 함')); return; }
+    const notes = [];
+    if (v !== v.trim()) notes.push('앞뒤 공백 있음(자동으로 무시됨)');
+    if (/^["'].*["']$/.test(v.trim())) notes.push('따옴표로 감싸져 있음(자동으로 무시됨)');
+    Logger.log(k + ': 설정됨, 실제 비교 길이 ' + clean_(v).length + '자' + (notes.length ? ' — ' + notes.join(', ') : ''));
+  });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  TABLES.forEach((t) => {
+    const sh = ss.getSheetByName(t);
+    Logger.log('탭 ' + t + ': ' + (sh ? Math.max(0, sh.getLastRow() - 1) + '행' : '없음'));
+  });
+}
+
 /* ───────── 도우미 ───────── */
+
+// 비밀번호 비교용: 앞뒤 공백과 감싼 따옴표를 무시
+function clean_(v) {
+  let s = v == null ? '' : String(v).trim();
+  if (/^["'].*["']$/.test(s) && s.length >= 2) s = s.slice(1, -1).trim();
+  return s;
+}
 
 function withLock_(fn) {
   const lock = LockService.getScriptLock();

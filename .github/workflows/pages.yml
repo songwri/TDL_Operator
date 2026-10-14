@@ -30,6 +30,9 @@ jobs:
         run: |
           mkdir -p _site
           cp -r index.html config.js css js .nojekyll _site/
+          # 브라우저가 옛 파일을 기억하지 않도록, 배포마다 파일 주소에 버전을 붙인다
+          V="${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
+          sed -i -E "s#(src|href)=\"(config\.js|js/[a-z-]+\.js|css/app\.css)\"#\1=\"\2?v=$V\"#g" _site/index.html
           if [ -n "$SCRIPT_URL" ]; then
             case "$SCRIPT_URL" in
               https://script.google.com/*) ;;

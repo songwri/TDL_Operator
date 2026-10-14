@@ -16,7 +16,7 @@
           ${opts && opts.fontCtl ? '<div class="font-ctl"><button data-font="-1" aria-label="글자 작게">가-</button><button data-font="1" aria-label="글자 크게">가+</button></div>' : ''}
           ${App.editBtn(`data-edit-station="${st.id}"`, '✎ 대사 수정')}
         </div>
-        ${st.tips ? `<div class="tip"><b>가이드 팁</b> ${esc(st.tips)}</div>` : ''}
+        ${st.tips ? `<div class="tip"><b>가이드 팁</b><br>${esc(st.tips).replace(/\n/g, "<br>")}</div>` : ''}
         <div class="narration" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, { guide: prefs.guide }) : fallback ? `<p class="muted">이 버전은 비어 있어 다른 버전을 보여줍니다.</p>${narration(fallback, { guide: prefs.guide })}` : '<p class="muted">대사가 아직 없습니다.</p>'}</div>
         ${Panels.transition(st, prefs)}`;
     },

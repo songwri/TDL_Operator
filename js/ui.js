@@ -14,7 +14,7 @@
   function narration(text, opts) {
     const o = opts || {};
     let t = text || '';
-    if (o.guide) t = t.replace(/000\s?입니다/g, `${o.guide} 입니다`);
+    if (o.guide) t = t.replace(/000\s?입니다/g, `${o.guide}입니다`);
     // 엑셀 셀 안의 줄바꿈은 문장 중간에서 끊긴 경우가 많아, 문장이 끝나지 않은 줄은 이어 붙인다
     const lines = [];
     t.split('\n').forEach((raw) => {

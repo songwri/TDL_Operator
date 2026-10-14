@@ -29,6 +29,7 @@
       if (i < 0 || i === stops.length - 1) return '';
       const next = Store.get('stations', stops[i + 1]);
       const row = Store.where('transitions', (t) => t.routeId === route.id && t.fromStationId === st.id && t.toStationId === next.id)[0];
+      if (!(row && row.text) && !Store.isUnlocked()) return '';   // 비전홀 구간처럼 대사 안에 이동 멘트가 있는 곳은 빈 상자를 숨김
       return `<div class="transition" style="--nar-size:${(prefs && prefs.font) || 18}px">
         <div class="tr-head">➜ 이동 멘트 · 다음 ${esc(next.no)}. ${esc(next.name)}
           ${row && row.status === '확인필요' ? '<span class="badge warn">초안 · 확인필요</span>' : ''}${badgeRecent(row)}

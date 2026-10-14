@@ -65,7 +65,7 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const json = await res.json();
-      if (!json.ok) { const e = new Error(json.error || 'error'); e.code = json.error; throw e; }
+      if (!json.ok) { const e = new Error(json.message || json.error || 'error'); e.code = json.error; throw e; }
       return json;
     },
     async load() { return (await this.call({ action: 'load' })).data; },
@@ -129,7 +129,7 @@
       await this.login(pw, !!ls.get('tdl.pw'));
     },
     async login(pw, remember) {
-      this.password = pw;
+      this.password = pw; this.lastError = '';
       try {
         const d = await SheetAdapter.load();
         this.data = normalize(d);
@@ -155,8 +155,9 @@
           this.emit();
           return { ok: true };
         }
-        this.status = 'login'; this.emit();
-        return { ok: false, error: '시트에 연결하지 못했습니다 (' + e.message + ')' };
+        this.status = 'login'; this.lastError = e.code ? 'server' : 'network'; this.emit();
+        if (e.code === 'server_error') return { ok: false, error: 'Apps Script 실행 오류: ' + (e.message || '') };
+        return { ok: false, error: '시트 서버에 연결하지 못했습니다 (' + e.message + ')' };
       }
     },
     logout() {

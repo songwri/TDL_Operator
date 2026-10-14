@@ -352,3 +352,5 @@ code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-
 .transition p { margin: 0; font-size: var(--nar-size, 18px); line-height: 1.7; }
 
 .gate-ver { text-align: center; opacity: .7; }
+.gate-help { display: grid; gap: 6px; }
+.gate-help ol { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }

@@ -20,11 +20,26 @@ const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'rou
   'manual', 'contacts', 'tourLogs', 'history'];
 const TZ = 'Asia/Seoul';
 
+const CODE_VERSION = '2026-10-14.3';
+
+// 웹 앱 주소를 브라우저로 열면 이 화면이 나옵니다 — 배포·코드 버전·설정 여부 확인용 (비밀번호 값은 표시하지 않음)
 function doGet() {
-  return json_({ ok: true, app: 'TDL 투어 가이드 API', note: '웹앱에서 POST로 호출합니다.' });
+  const props = PropertiesService.getScriptProperties();
+  return json_({
+    ok: true, app: 'TDL 투어 가이드 API', version: CODE_VERSION,
+    accessPasswordSet: !!clean_(props.getProperty('ACCESS_PASSWORD')),
+    editPasswordSet: !!clean_(props.getProperty('EDIT_PASSWORD')),
+  });
 }
 
+// 어떤 오류가 나도 JSON으로 답해야 앱에서 원인을 보여 줄 수 있다 (오류 HTML 페이지는 앱이 읽지 못함)
 function doPost(e) {
+  try { return handlePost_(e); } catch (err) {
+    return json_({ ok: false, error: 'server_error', message: String(err && err.message || err) });
+  }
+}
+
+function handlePost_(e) {
   let req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
   const props = PropertiesService.getScriptProperties();

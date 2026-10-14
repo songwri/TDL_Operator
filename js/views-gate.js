@@ -43,6 +43,12 @@
             <label class="check"><input type="checkbox" name="remember"> 이 기기에서 기억하기</label>
             <button class="btn primary big block" type="submit">들어가기</button>
           </form>
+          ${Store.lastError === 'network' ? `<div class="card soft gate-help"><b>연결 점검</b>
+            <ol class="small"><li>아래 버튼으로 시트 서버 주소를 직접 엽니다.</li>
+              <li><code>"ok":true</code>와 <code>"version"</code>이 보이면 서버는 정상입니다. 잠시 후 다시 시도하세요.</li>
+              <li>구글 로그인 화면이 나오면 → Apps Script 배포의 <b>액세스 권한</b>을 “모든 사용자”로.</li>
+              <li>오류 문구나 “파일을 찾을 수 없음”이 나오면 → Code.gs 붙여넣기·배포 상태를 확인.</li></ol>
+            <a class="btn small" href="${esc(Store.adapter.url())}" target="_blank" rel="noopener">시트 서버 주소 열기</a></div>` : ''}
           ${Store.adapter.fixed && Store.adapter.fixed() ? '' : '<button class="btn small ghost" data-change-url>연결 URL 변경</button>'}`);
       }
       // 연결은 됐지만 시트가 비어 있음

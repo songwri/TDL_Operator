@@ -69,27 +69,57 @@
       const fields = Store.settingJson('specFields', []);
       const rows = Store.where('specs', (s) => s.stationId === st.id);
       const groups = Array.from(new Set(rows.map((r) => r.group || ''))); if (!groups.length) groups.push('');
+      const LEGACY_PRICE = ['투자비', '대당 가격'];           // 예전 데이터의 가격 칸 이름
+      const SPECIAL = ['제조사 · 모델', '오픈프라이스', '당사 투자비'].concat(LEGACY_PRICE);
+      const warn = (r) => r && r.status === '확인필요';
+      const badges = (r) => `${warn(r) ? '<span class="badge warn">확인필요</span>' : ''}${badgeRecent(r)}`;
+      const edit = (g, f) => App.editBtn(`data-edit-spec="${st.id}|${esc(g)}|${esc(f)}"`, '✎');
       return groups.map((g) => {
         const gRows = rows.filter((r) => (r.group || '') === g);
-        const extra = gRows.filter((r) => !fields.includes(r.field));
-        const filled = gRows.filter((r) => r.value).length;
+        const get = (f) => gRows.find((x) => x.field === f && x.value) || gRows.find((x) => x.field === f);
+        const model = get('제조사 · 모델');
+        const invest = get('당사 투자비') || LEGACY_PRICE.map(get).find(Boolean);
+        const open = get('오픈프라이스');
+        const priceTile = (r, f, label, sub) => `<div class="price${r && r.value ? '' : ' empty'}${warn(r) ? ' warn' : ''}">
+            <div class="price-k">${label}<small>${sub}</small></div>
+            <div class="price-v">${r && r.value ? Panels.specValue(r.value) : '<span class="muted">미입력</span>'} ${badges(r)}</div>
+            ${r && r.note ? `<small class="note">${esc(r.note)}</small>` : ''}${edit(g, r ? r.field : f)}</div>`;
+        const rest = fields.filter((f) => !SPECIAL.includes(f)).concat(gRows.map((r) => r.field).filter((f) => !fields.includes(f) && !SPECIAL.includes(f)));
+        const uniq = Array.from(new Set(rest));
+        const filled = uniq.filter((f) => { const r = get(f); return r && r.value; }).length;
         return `<section class="spec-group">
-          ${g ? `<h4>${esc(g)}</h4>` : ''}
-          <div class="spec-meta"><span class="muted">표준양식 ${filled}/${fields.length} 입력</span>
-            <button class="btn small ghost" data-spec-empty>${Panels.showEmpty ? '빈 항목 숨기기' : `빈 항목 ${fields.length - filled}개 보기`}</button></div>
-          <dl class="spec">${fields.concat(extra.map((r) => r.field)).map((f) => {
-            const r = gRows.find((x) => x.field === f);
+          <header class="spec-head"><div>${g ? `<h4>${esc(g)}</h4>` : ''}
+            <p class="spec-model">${model && model.value ? esc(model.value) : '<span class="muted">제조사 · 모델 미입력</span>'} ${badges(model)}</p>
+            ${model && model.note ? `<small class="note">${esc(model.note)}</small>` : ''}</div>${edit(g, '제조사 · 모델')}</header>
+          <div class="price-pair">
+            ${priceTile(open, '오픈프라이스', '오픈프라이스', '제조사 공개 가격')}
+            ${priceTile(invest, '당사 투자비', '당사 투자비', '매뉴얼 기준 도입·투자 금액')}
+          </div>
+          <dl class="spec">${uniq.map((f) => {
+            const r = get(f);
             const empty = !r || !r.value;
-            if (empty && !Panels.showEmpty && !(r && r.status === '확인필요')) return '';
-            return `<div class="spec-row${empty ? ' empty' : ''}${r && r.status === '확인필요' ? ' warn' : ''}">
-              <dt>${esc(f)}</dt>
-              <dd>${empty ? '<span class="muted">미입력</span>' : UI.markPlaceholders(esc(r.value)).replace(/\n/g, '<br>')}
-                ${r && r.status === '확인필요' ? '<span class="badge warn">확인필요</span>' : ''}${badgeRecent(r)}
+            if (empty && !Panels.showEmpty && !warn(r)) return '';
+            return `<div class="spec-row${empty ? ' empty' : ''}${warn(r) ? ' warn' : ''}${f === '제조사 공개 사양' ? ' wide' : ''}">
+              <dt>${esc(f)} ${badges(r)}</dt>
+              <dd>${empty ? '<span class="muted">미입력</span>' : Panels.specValue(r.value, f === '제조사 공개 사양')}
                 ${r && r.note ? `<small class="note">${esc(r.note)}</small>` : ''}</dd>
-              ${App.editBtn(`data-edit-spec="${st.id}|${esc(g)}|${esc(f)}"`, '✎')}</div>`;
-          }).join('')}</dl></section>`;
-      }).join('') + (Store.isUnlocked() ? `<button class="btn small ghost" data-add-spec-group="${st.id}">+ 스펙 그룹(설비) 추가</button>` : '')
-        + '<p class="muted small">스펙정의서가 확정되면 각 칸을 수정하세요. 빈 칸은 표준양식 항목입니다.</p>';
+              ${edit(g, f)}</div>`;
+          }).join('')}</dl>
+          <div class="spec-meta"><span class="muted">표준양식 ${filled}/${uniq.length} 입력</span>
+            <button class="btn small ghost" data-spec-empty>${Panels.showEmpty ? '빈 항목 숨기기' : `빈 항목 ${uniq.length - filled}개 보기`}</button></div>
+        </section>`;
+      }).join('') + (Store.isUnlocked() ? `<button class="btn small ghost" data-add-spec-group="${st.id}">+ 스펙 그룹(설비) 추가</button>` : '');
+    },
+
+    // 여러 줄 값은 목록으로, "항목: 값" 줄은 항목과 값을 나눠 보여 준다
+    specValue(value, forceList) {
+      const lines = String(value).split('\n').map((l) => l.trim()).filter(Boolean);
+      const fmt = (t) => UI.markPlaceholders(esc(t));
+      if (lines.length < 2 && !forceList) return `<span class="spec-v">${fmt(lines[0] || '')}</span>`;
+      return `<ul class="spec-lines">${lines.map((l) => {
+        const m = l.match(/^([^:：]{1,16})[:：]\s*(.+)$/);
+        return m ? `<li><span class="k">${fmt(m[1])}</span><span class="v">${fmt(m[2])}</span></li>` : `<li><span class="v">${fmt(l)}</span></li>`;
+      }).join('')}</ul>`;
     },
 
     qa(st, filter) {
@@ -237,11 +267,12 @@
 
   function tabsHtml(st, tab) {
     const qaN = Store.where('qa', (x) => x.stationId === st.id).length;
-    const tabs = [['nar', '나레이션'], ['spec', st.equipment ? '스펙' : '스펙'], ['qa', `Q&A ${qaN}`], ['act', '체크']];
+    const tabs = [['nar', '나레이션']].concat(st.equipment ? [['spec', '스펙']] : [], [['qa', `Q&A ${qaN}`], ['act', '체크']]);
+    if (tab === 'spec' && !st.equipment) tab = 'nar';
     return `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${tab === k}" data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   }
   function tabBody(st, tab, prefs, state) {
-    if (tab === 'spec') return Panels.specs(st);
+    if (tab === 'spec' && st.equipment) return Panels.specs(st);
     if (tab === 'qa') return Panels.qa(st, state.qaFilter);
     if (tab === 'act') return Panels.actions(st, prefs, state.checks);
     return Panels.narration(st, prefs, { fontCtl: true });

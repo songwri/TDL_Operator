@@ -19,7 +19,8 @@
       const st = Store.status;
       const box = (inner) => `<section class="gate"><div class="gate-card card">
         <div class="gate-brand"><span class="logo">TDL</span><b>투어 가이드</b></div>${inner}
-        ${msg ? `<p class="gate-msg" role="alert">${esc(msg)}</p>` : ''}</div></section>`;
+        ${msg ? `<p class="gate-msg" role="alert">${esc(msg)}</p>` : ''}
+        <small class="muted gate-ver">버전 ${esc(window.TDL_BUILD || '개발')}</small></div></section>`;
       if (st === 'boot') return box('<p class="muted">불러오는 중…</p>');
       if (st === 'setup') {
         return box(`<h2>구글 시트 연결</h2>
@@ -42,7 +43,7 @@
             <label class="check"><input type="checkbox" name="remember"> 이 기기에서 기억하기</label>
             <button class="btn primary big block" type="submit">들어가기</button>
           </form>
-          <button class="btn small ghost" data-change-url>연결 URL 변경</button>`);
+          ${Store.adapter.fixed && Store.adapter.fixed() ? '' : '<button class="btn small ghost" data-change-url>연결 URL 변경</button>'}`);
       }
       // 연결은 됐지만 시트가 비어 있음
       return box(`<h2>시트가 비어 있습니다</h2>

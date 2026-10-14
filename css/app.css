@@ -350,3 +350,5 @@ code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-
 .transition { border: 1px dashed var(--route); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; }
 .transition .tr-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: var(--route); font-weight: 700; font-size: .85rem; }
 .transition p { margin: 0; font-size: var(--nar-size, 18px); line-height: 1.7; }
+
+.gate-ver { text-align: center; opacity: .7; }

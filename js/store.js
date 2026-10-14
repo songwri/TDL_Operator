@@ -10,7 +10,8 @@
   // 시트에는 모든 값이 글자로 저장되므로 읽을 때 형을 되돌린다
   const NUM = { stations: ['x', 'y', 'minutes', 'order'], actions: ['order'], specs: ['order'], manual: ['order'], tourLogs: ['headcount', 'minutes'] };
   const BOOL = { stations: ['equipment', 'optional'], qa: ['common'] };
-  const CFG = window.TDL_CONFIG || {};
+  // 배포 설정(config.js)의 주소가 있으면 항상 그것을 쓴다. 기기에 남은 예전 입력값보다 우선.
+  const cfgUrl = () => String((window.TDL_CONFIG || {}).scriptUrl || '').trim();
 
   const ls = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -53,7 +54,8 @@
   const SheetAdapter = {
     kind: 'sheet',
     name: '구글 시트',
-    url() { return ls.get('tdl.scriptUrl') || CFG.scriptUrl || ''; },
+    url() { return cfgUrl() || ls.get('tdl.scriptUrl') || ''; },
+    fixed() { return !!cfgUrl(); },
     async call(body) {
       const res = await fetch(this.url(), {
         method: 'POST',
@@ -103,6 +105,16 @@
     async init() {
       this.editor = ss.get('tdl.editor') || '';
       this.editPassword = ss.get('tdl.editPw') || '';
+      // 배포 주소가 있으면 시험용 모드·예전 URL 기록은 지운다
+      if (cfgUrl()) { ls.del('tdl.mode'); ls.del('tdl.scriptUrl'); }
+      // 브라우저가 옛 config.js 를 기억해 주소가 비어 보이면, 새로 받아 한 번 더 확인
+      if (!cfgUrl() && !ls.get('tdl.scriptUrl')) {
+        try {
+          const txt = await (await fetch('config.js?ts=' + Date.now(), { cache: 'no-store' })).text();
+          const m = txt.match(/scriptUrl:\s*['"]([^'"]+)['"]/);
+          if (m) window.TDL_CONFIG = Object.assign({}, window.TDL_CONFIG, { scriptUrl: m[1] });
+        } catch (e) { /* 오프라인 등 — 무시 */ }
+      }
       const mode = ls.get('tdl.mode');
       if (mode === 'local') {
         this.adapter = LocalAdapter;

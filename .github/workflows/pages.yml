@@ -43,6 +43,7 @@ jobs:
           else
             echo "::warning::SCRIPT_URL 변수가 없어 저장소의 config.js 를 그대로 사용합니다"
           fi
+          printf "window.TDL_BUILD = '%s';\n" "$V" >> _site/config.js
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

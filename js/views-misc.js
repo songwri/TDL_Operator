@@ -266,7 +266,7 @@
           <div class="card"><h3>설정</h3>
             ${can ? `<div class="row wrap"><button class="btn small" data-pw="edit">편집 비밀번호 변경</button>
               ${Store.adapter.kind === 'sheet' ? '<button class="btn small" data-pw="access">접속 비밀번호 변경</button>' : ''}
-              <button class="btn small ghost" data-recent>“수정됨” 표시 기간 (${esc(Store.setting('recentDays', '30'))}일)</button>
+              <button class="btn small ghost" data-recent>“수정됨” 표시 기간 (${esc(Store.setting('recentDays', '3'))}일)</button>
               <button class="btn small ghost" data-biz>비즈니스 목록</button>
               <button class="btn small ghost" data-specfields>스펙 표준양식 항목</button></div>`
               : '<p class="muted small">설정을 바꾸려면 🔒 편집을 켜 주세요.</p>'}
@@ -303,7 +303,7 @@
         else if ('reload' in d) { await Store.reload(); toast(Store.sync.state === 'saved' ? '다시 불러왔습니다' : '불러오기 실패'); }
         else if ('logout' in d) { if (confirm('로그아웃할까요? 이 기기에 저장된 데이터도 지웁니다.')) Store.logout(); }
         else if ('leaveLocal' in d) { if (confirm('시험용 데이터를 지우고 시트 연결 화면으로 갈까요?')) Store.leaveLocal(); } else if ('recent' in d) {
-          const res = await form('“수정됨” 표시 기간', [{ key: 'days', label: '수정 후 며칠 동안 표시할까요?', type: 'number' }], { days: Store.setting('recentDays', '30') });
+          const res = await form('“수정됨” 표시 기간', [{ key: 'days', label: '수정 후 며칠 동안 표시할까요?', type: 'number' }], { days: Store.setting('recentDays', '3') });
           if (res && res.days > 0) Store.setSetting('recentDays', String(res.days));
         } else if ('biz' in d) {
           const res = await form('비즈니스 목록 (2번 ZONE)', [{ key: 'list', label: '한 줄에 하나', type: 'textarea', rows: 7 }], { list: Store.settingJson('businesses', []).join('\n') });

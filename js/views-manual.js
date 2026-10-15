@@ -3,12 +3,11 @@
   const { esc, $, badgeRecent, form, toast, requireUnlock } = UI;
 
   const SECTIONS = {
+    // 투어 전은 설비(행) × 구분(열) 표로 보여 준다
     pre: [
-      ['prep', '사전 준비 항목', '시연 매뉴얼의 사전 준비 항목'],
-      ['order', '사전 오더 준비', '이 설비에 미리 올려 둘 오더 — 종류, 수량, SKU, 시연 시나리오'],
-      ['power', '전원 ON 절차', '켜는 순서대로 한 줄에 한 단계씩'],
-      ['upload', '오더 업로드 경로', '어떤 사이트를 어떤 순서로 경유해 무엇을 누르는지'],
-      ['error', '오류 대처', '한 줄에 “증상 | 조치” 형식'],
+      ['prep', '사전준비', '투어 전에 미리 해 둘 일 — 오더 생성, 물품 셋팅 등'],
+      ['field', '현장조작', '시연할 때 현장 PC·장비에서 하는 조작'],
+      ['etc', '기타가이드', '라벨 부착, 투입 방법 등 참고 가이드'],
     ],
     post: [
       ['cleanup', '정리 절차', '시연 물량 원위치, 잔여 오더 처리 등'],
@@ -72,23 +71,41 @@
     return `<div class="prep">
       ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
       ${m.body ? `<p class="small">${esc(m.body)}</p>` : ''}
-      ${gs.length ? `<div class="prep-links">${gs.map((g) => `<a class="btn small" href="#/guide/${esc(g.id)}">절차: ${esc(g.title)} ›</a>`).join('')}</div>` : ''}
+      ${gs.length ? `<div class="prep-links">${gs.map((g) => `<a class="btn small" href="#/guide/${esc(g.id)}">${esc(g.title)} ›</a>`).join('')}</div>` : ''}
     </div>`;
   }
 
-  // 절차 가이드 목록 (사전 준비 매뉴얼)
-  function guidesHtml() {
-    const all = App.guidesFor(null);
-    if (!all.length) return '';
-    const ov = Store.setting('prepOverviewImage', '');
-    const group = (ph, title) => {
-      const gs = all.filter((g) => g.phase === ph);
-      return gs.length ? `<div class="g-group"><h4>${title}</h4>${gs.map(App.guideLink).join('')}</div>` : '';
-    };
-    return `<div class="card guides-card"><h3>시연 매뉴얼 절차</h3>
-      <p class="small muted">메뉴 위치가 표시된 매뉴얼 화면을 단계별로 보여 줍니다.</p>
-      ${ov ? `<details class="ov"><summary>사전 준비 항목 한눈에 보기 (매뉴얼 표)</summary>${App.shot(ov)}</details>` : ''}
-      <div class="g-groups">${group('pre', '사전 준비 (시스템)')}${group('field', '현장 조작')}${group('etc', '기타 가이드')}</div></div>`;
+  // 투어 전 설비별 표: 행 = 설비(설정 preRows 순서), 열 = 사전준비 · 현장조작 · 기타가이드
+  const PRE_ROWS = 's10,s9,s6,s8,s7';
+  const preRows = () => String(Store.setting('preRows', PRE_ROWS) || PRE_ROWS).split(',').map((x) => x.trim()).map((id) => Store.get('stations', id)).filter(Boolean);
+  const preCol = (m) => (SECTIONS.pre.some(([k]) => k === m.section) ? m.section : 'etc');
+
+  function matrixItem(m, checks) {
+    return `<div class="mx-item">
+      <div class="mx-item-head"><label class="check"><input type="checkbox" data-mcheck="${m.id}"${checks[m.id] ? ' checked' : ''}><b>${esc(m.title)}</b></label>
+        ${badgeRecent(m)}${m.tourType !== 'all' ? `<span class="badge">${esc(m.tourType)}</span>` : ''}${App.editBtn(`data-edit-manual="${m.id}"`, '✎')}</div>
+      ${prepHtml(m)}</div>`;
+  }
+
+  function matrixHtml(checks, tourType) {
+    const cols = SECTIONS.pre;
+    return `<div class="matrix">
+      <div class="mx-head" aria-hidden="true"><span>설비</span>${cols.map(([, t]) => `<span>${t}</span>`).join('')}</div>
+      ${preRows().map((st) => {
+        const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === st.id && (m.tourType === 'all' || m.tourType === tourType)).sort((a, b) => a.order - b.order);
+        const doneN = items.filter((m) => checks[m.id]).length;
+        return `<section class="mx-row card">
+          <header class="mx-eq"><span class="st-no">${esc(st.no)}</span><span class="st-body"><b>${esc(st.name)}</b>
+            <small>${items.length ? `${doneN}/${items.length} 완료` : '항목 없음'}</small></span></header>
+          ${cols.map(([key, title, hint]) => {
+            const its = items.filter((m) => preCol(m) === key);
+            return `<div class="mx-cell"><h4 class="mx-label">${title}</h4>
+              ${its.length ? its.map((m) => matrixItem(m, checks)).join('') : `<div class="mx-empty" title="${esc(hint)}">작성 필요</div>`}
+              ${App.editBtn(`data-add-manual="pre|${st.id}|${key}"`, '+ 추가')}</div>`;
+          }).join('')}
+        </section>`;
+      }).join('')}
+    </div>`;
   }
 
   function commonList(phase, checks, tourType) {
@@ -112,20 +129,20 @@
     const prefs = App.prefs.load();
     const checks = loadChecks(phase);
     const tourType = prefs.tourType || '일반';
-    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType));
+    const isPre = phase === 'pre';
+    const rowIds = isPre ? ['common'].concat(preRows().map((st) => st.id)) : null;
+    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType) && (!rowIds || rowIds.includes(m.stationId)));
     const doneN = all.filter((m) => checks[m.id]).length;
     const equip = App.stationsSorted().filter((s) => s.equipment && !s.optional);
-    const isPre = phase === 'pre';
     return `<section class="page manual-page">
       <header class="page-head"><div><h2>${isPre ? '투어 전 준비' : '투어 후 정리'}</h2>
         <small class="muted">${Store.today()} · 체크 상태는 이 기기에 오늘 날짜로 저장됩니다</small></div>
         <div class="seg" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-mtype="${t}" class="${tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div></header>
       <div class="progress card"><div class="bar"><span style="width:${all.length ? Math.round((doneN / all.length) * 100) : 0}%"></span></div>
         <span><b>${doneN}</b> / ${all.length} 완료</span><button class="btn small ghost" data-mreset>오늘 체크 초기화</button></div>
-      ${isPre ? guidesHtml() : ''}
       <div class="card"><h3>공통 ${isPre ? '준비' : '정리'}</h3>${commonList(phase, checks, tourType)}</div>
       <h3 class="section-title">설비별 ${isPre ? '준비' : '정리 (정리 · 전원 OFF · 확인)'}</h3>
-      <div class="equip-list">${equip.map((st) => equipmentCard(phase, st, checks, tourType)).join('')}</div>
+      ${isPre ? matrixHtml(checks, tourType) : `<div class="equip-list">${equip.map((st) => equipmentCard(phase, st, checks, tourType)).join('')}</div>`}
       ${contactsHtml()}
       ${!isPre ? logsHtml() : ''}
     </section>`;
@@ -183,21 +200,22 @@
     let m;
     if (id) m = Store.get('manual', id);
     else {
-      const [phase, stationId] = phaseStation.split('|');
-      m = { id: '', phase, stationId, section: stationId === 'common' ? 'check' : SECTIONS[phase][0][0], title: '', body: '', method: '', tourType: 'all', order: Store.all('manual').length + 1 };
+      const [phase, stationId, section] = phaseStation.split('|');
+      m = { id: '', phase, stationId, section: stationId === 'common' ? 'check' : (section || SECTIONS[phase][0][0]), title: '', body: '', method: '', tourType: 'all', system: '', guideIds: '', order: Store.all('manual').length + 1 };
     }
     const secOpts = m.stationId === 'common' ? [['check', '체크 항목']] : SECTIONS[m.phase].map(([k, t]) => [k, t]);
+    if (m.phase === 'pre' && m.stationId !== 'common' && !secOpts.some(([k]) => k === m.section)) secOpts.push([m.section, m.section]);
     const fields = [
       { key: 'section', label: '구분', type: 'select', options: secOpts },
       { key: 'title', label: '제목', required: true },
       { key: 'body', label: '내용', type: 'textarea', rows: 8, hint: '한 줄에 한 단계. 오류 대처는 “증상 | 조치”. 사이트 주소(https://…)는 링크가 됩니다.' },
       { key: 'tourType', label: '적용 투어', type: 'select', options: [['all', '전체'], ['일반', '일반 고객만'], ['VIP', 'VIP만']] },
     ];
-    if (m.section === 'upload' || (!id && m.stationId !== 'common')) fields.splice(2, 0, { key: 'method', label: '업로드 방식 (오더 업로드 경로일 때)', type: 'select', options: METHODS });
-    if (m.section === 'prep') {
+    if (m.section === 'upload') fields.splice(2, 0, { key: 'method', label: '업로드 방식 (오더 업로드 경로일 때)', type: 'select', options: METHODS });
+    if (m.phase === 'pre' && m.stationId !== 'common') {
       fields[2] = { key: 'body', label: '비고', type: 'textarea', rows: 3 };
       fields.splice(2, 0, { key: 'system', label: '시스템', placeholder: '예: GO Wing & GSI' },
-        { key: 'guideIds', label: '관련 절차 가이드 id (쉼표로 구분)', hint: '예: g_in,g_out — 더보기가 아닌 투어 전 페이지의 가이드 목록 주소(#/guide/…) 끝 부분' });
+        { key: 'guideIds', label: '관련 절차 가이드 id (쉼표로 구분)', hint: `예: g_in_plt,g_label — 지금 있는 가이드: ${App.guidesFor(null).map((g) => g.id).join(', ')}` });
     }
     const res = await form(id ? '매뉴얼 항목 수정' : '매뉴얼 항목 추가', fields, m, id ? { danger: '삭제' } : null);
     if (!res) return;

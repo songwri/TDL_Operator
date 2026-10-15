@@ -306,7 +306,7 @@
     },
     isRecent(row) {
       if (!row || !row.updatedAt) return false;
-      const days = Number(this.setting('recentDays', '30')) || 30;
+      const days = Number(this.setting('recentDays', '3')) || 3;
       const t = new Date(String(row.updatedAt).slice(0, 10) + 'T00:00:00');
       return (Date.now() - t.getTime()) / 86400000 <= days;
     },

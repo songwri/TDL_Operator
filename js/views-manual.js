@@ -85,9 +85,10 @@
   const preCol = (m) => { const c = String(m.section || '').split('-')[0]; return SECTIONS.pre.some(([k]) => k === c) ? c : 'etc'; };
   const preSub = (m) => String(m.section || '').split('-')[1] || '';
 
-  // 사전준비만 “해야 할 일”이라 체크 대상. 현장조작·기타가이드는 확인용 참고(체크 없음)
+  // 사전준비·현장조작은 “해야 할 일”이라 체크 대상. 기타가이드는 참고용(체크 없음)
+  const isTask = (m) => ['prep', 'field'].includes(preCol(m));
   function matrixItem(m, checks) {
-    const task = preCol(m) === 'prep';
+    const task = isTask(m);
     return `<div class="mx-item${task ? '' : ' ref'}">
       <div class="mx-item-head">${task
         ? `<label class="check"><input type="checkbox" data-mcheck="${m.id}"${checks[m.id] ? ' checked' : ''}><b>${esc(m.title)}</b></label>`
@@ -109,11 +110,11 @@
       <div class="mx-head" aria-hidden="true"><span>설비</span>${cols.map(([, t]) => `<span>${t}</span>`).join('')}</div>
       ${preRows().map((st) => {
         const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === st.id && (m.tourType === 'all' || m.tourType === tourType)).sort((a, b) => a.order - b.order);
-        const tasks = items.filter((m) => preCol(m) === 'prep');
+        const tasks = items.filter(isTask);
         const doneN = tasks.filter((m) => checks[m.id]).length;
         return `<section class="mx-row card">
           <header class="mx-eq"><span class="st-no">${esc(st.no)}</span><span class="st-body"><b>${esc(st.name)}</b>
-            <small>${tasks.length ? `사전준비 ${doneN}/${tasks.length} 완료` : '사전준비 항목 없음'}</small></span></header>
+            <small>${tasks.length ? `${doneN}/${tasks.length} 완료` : '체크 항목 없음'}</small></span></header>
           ${cols.map(([key, title, hint]) => {
             const its = items.filter((m) => preCol(m) === key);
             return `<div class="mx-cell"><h4 class="mx-label">${title}</h4>
@@ -148,7 +149,7 @@
     const tourType = prefs.tourType || '일반';
     const isPre = phase === 'pre';
     const rowIds = isPre ? ['common'].concat(preRows().map((st) => st.id)) : null;
-    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType) && (!rowIds || (rowIds.includes(m.stationId) && (m.stationId === 'common' || preCol(m) === 'prep'))));
+    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType) && (!rowIds || (rowIds.includes(m.stationId) && (m.stationId === 'common' || isTask(m)))));
     const doneN = all.filter((m) => checks[m.id]).length;
     const equip = App.stationsSorted().filter((s) => s.equipment && !s.optional);
     return `<section class="page manual-page">

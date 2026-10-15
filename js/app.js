@@ -102,3 +102,13 @@
     Store.init();
   });
 })();
+
+// 헤더 높이를 CSS 변수로 알려 줘서, 헤더 아래에 고정되는 요소(진행 바)가 정확히 붙도록 한다
+(function () {
+  const head = document.querySelector('.app-head');
+  if (!head) return;
+  const set = () => document.documentElement.style.setProperty('--head-h', head.offsetHeight + 'px');
+  set();
+  window.addEventListener('resize', set);
+  if (window.ResizeObserver) new ResizeObserver(set).observe(head);
+})();

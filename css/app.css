@@ -494,3 +494,14 @@ dialog.lightbox::backdrop { background: rgba(0, 0, 0, .8); }
 .narration .joke::before { content: "😄 "; font-size: .85em; }
 .lang-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .joke-toggle.on { background: var(--common-bg); color: var(--common); border-color: transparent; }
+
+/* 완료 진행 바: 스크롤해도 헤더 아래에 고정 */
+.progress.card { position: sticky; top: calc(var(--head-h, 58px) + env(safe-area-inset-top, 0px) + 6px); z-index: 15; padding: 10px 14px; box-shadow: 0 4px 14px rgba(23, 32, 44, .12); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .progress.card { box-shadow: 0 4px 14px rgba(0, 0, 0, .45); } }
+:root[data-theme="dark"] .progress.card { box-shadow: 0 4px 14px rgba(0, 0, 0, .45); }
+.progress.card { flex-wrap: nowrap; gap: 10px; }
+.progress.card .bar { min-width: 48px; }
+.progress.card span, .progress.card .btn { white-space: nowrap; }
+.progress.card .btn { padding: 5px 10px; font-size: var(--fs-xs); }
+.progress.card small { display: none; }
+@media (min-width: 900px) { .progress.card small { display: inline; } }

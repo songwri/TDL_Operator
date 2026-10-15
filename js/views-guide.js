@@ -80,14 +80,12 @@
       const steps = App.guideSteps(id);
       const ck = loadCk();
       const done = steps.filter((s) => ck[s.id]).length;
-      const sts = String(g.stations || '').split(',').map((sid) => Store.get('stations', sid)).filter(Boolean);
       return `<section class="page guide-page">
         <button class="back linkish" data-back>‹ 뒤로</button>
         <header class="page-head"><div>
           <span class="badge">${esc(PHASE[g.phase] || g.phase)}</span>
           <h2>${esc(g.title)} ${UI.badgeRecent(g)}</h2>
           ${g.summary ? `<p class="muted small g-summary">${esc(g.summary)}</p>` : ''}
-          <div class="chips">${sts.map((s) => `<a class="chip" href="#/station/${s.id}">${esc(s.no)}. ${esc(s.name)}</a>`).join('')}</div>
         </div>${App.editBtn(`data-edit-guide="${esc(id)}"`, '✎ 가이드 정보')}</header>
         ${steps.length ? `<div class="progress card"><div class="bar"><span style="width:${Math.round((done / steps.length) * 100)}%"></span></div>
           <span><b>${done}</b> / ${steps.length} 단계 완료</span><small class="muted">체크는 이 기기에 오늘 날짜로 저장</small></div>

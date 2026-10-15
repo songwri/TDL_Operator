@@ -194,7 +194,8 @@
             { key: 'name', label: '이름', required: true },
             { key: 'tourType', label: '투어 유형', type: 'select', options: ['일반', 'VIP'] },
             { key: 'description', label: '설명', type: 'textarea', rows: 2 },
-            { key: 'closing', label: '마무리 멘트', type: 'textarea', rows: 3, hint: '{가이드} 자리에 투어 화면에서 입력한 가이드 이름이 들어갑니다.' },
+            { key: 'closing', label: '마무리 멘트', type: 'textarea', rows: 3, hint: '{가이드} 자리에는 가이드 이름 안내 표시가 들어갑니다.' },
+            { key: 'closingEn', label: '마무리 멘트 (English)', type: 'textarea', rows: 3, hint: '{{ 농담 }} 은 농담 스위치로 끌 수 있습니다.' },
           ], r, r.id === 'r_basic' ? null : { danger: '동선 삭제' });
           if (!res) return;
           if (res._action === 'delete') { Store.remove('routes', r.id); self.routeId = ''; App.navigate('#/routes'); return; }

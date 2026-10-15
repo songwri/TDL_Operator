@@ -14,14 +14,17 @@
   function narration(text, opts) {
     const o = opts || {};
     let t = text || '';
-    t = t.replace(/000\s?입니다/g, o.guide ? `${o.guide}입니다` : '[본인 이름]입니다');   // 인사말의 이름 자리는 표시만
+    if (o.lang === 'en') t = t.replace(/\b000\b/g, o.guide || '[your name]');
+    else t = t.replace(/000\s?입니다/g, o.guide ? `${o.guide}입니다` : '[본인 이름]입니다');   // 인사말의 이름 자리는 표시만
+    // {{농담}}: 영문 대본의 농담 표시 — 끄면 통째로 뺀다
+    t = o.joke === false ? t.replace(/\s*\{\{[\s\S]*?\}\}/g, '') : t;
     // 엑셀 셀 안의 줄바꿈은 문장 중간에서 끊긴 경우가 많아, 문장이 끝나지 않은 줄은 이어 붙인다
     const lines = [];
     t.split('\n').forEach((raw) => {
       const line = raw.trim();
       const prev = lines[lines.length - 1];
-      const startsNew = !line || /^[\[(（\-•※]/.test(line) || /^\d+\)/.test(line);
-      if (prev && line && !startsNew && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
+      const startsNew = !line || /^[\[(（{\-•※]/.test(line) || /^\d+\)/.test(line);
+      if (prev && line && !startsNew && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]}]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
       else lines.push(line);
     });
     return lines.map((raw) => {
@@ -30,6 +33,7 @@
       const head = line.match(/^\[([^\]]+)\]$/);
       if (head) return `<h4 class="nar-seg">${esc(head[1])}</h4>`;
       let h = esc(line);
+      h = h.replace(/\{\{([\s\S]+?)\}\}/g, '<span class="joke" title="농담 — 상황에 따라 빼도 됩니다">$1</span>');
       h = h.replace(/\[([^\]]{1,60})\]/g, '<span class="cue">$1</span>');
       h = h.replace(/(^|\s)\(([^()]{1,60})\)/g, (m, pre, inner, offset) => {
         const atStart = offset === 0 || /^\s*$/.test(h.slice(0, offset));

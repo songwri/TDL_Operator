@@ -4,20 +4,25 @@
 
   // ───────── 장소 상세 패널 조각 (상세 화면과 투어 모드에서 공용) ─────────
   const Panels = {
+    // 한국어 / English 전환 + 영문 농담 켜기·끄기 (투어 설정 · 장소 상세 · 투어 모드 공용)
+    langCtl(prefs) {
+      const en = prefs.lang === 'en';
+      return `<div class="seg" role="group" aria-label="안내 언어">
+          <button data-lang="ko" class="${en ? '' : 'on'}">한국어</button><button data-lang="en" class="${en ? 'on' : ''}">English</button></div>
+        ${en ? `<button class="btn small ghost joke-toggle${prefs.joke === false ? '' : ' on'}" data-joke aria-pressed="${prefs.joke === false ? 'false' : 'true'}">😄 농담 ${prefs.joke === false ? '빼기' : '넣기'}</button>` : ''}`;
+    },
+
     narration(st, prefs, opts) {
-      const version = prefs.version === 'full' ? 'full' : 'short';
-      const text = version === 'full' ? st.scriptFull : st.scriptShort;
-      const fallback = !text && (version === 'full' ? st.scriptShort : st.scriptFull);
+      const en = prefs.lang === 'en';
+      const text = en ? st.scriptEn : st.script;
+      const empty = en ? '영문 대본이 아직 없습니다. “✎ 대사 수정”에서 추가할 수 있습니다.' : '대사가 아직 없습니다.';
       return `<div class="nar-toolbar">
-          <div class="seg" role="tablist" aria-label="스크립트 버전">
-            <button data-version="short" class="${version === 'short' ? 'on' : ''}">축약</button>
-            <button data-version="full" class="${version === 'full' ? 'on' : ''}">풀버전</button>
-          </div>
+          ${Panels.langCtl(prefs)}
           ${opts && opts.fontCtl ? '<div class="font-ctl"><button data-font="-1" aria-label="글자 작게">가-</button><button data-font="1" aria-label="글자 크게">가+</button></div>' : ''}
           ${App.editBtn(`data-edit-station="${st.id}"`, '✎ 대사 수정')}
         </div>
         ${st.tips ? `<div class="tip"><b>가이드 팁</b><br>${esc(st.tips).replace(/\n/g, "<br>")}</div>` : ''}
-        <div class="narration" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, {}) : fallback ? `<p class="muted">이 버전은 비어 있어 다른 버전을 보여줍니다.</p>${narration(fallback, {})}` : '<p class="muted">대사가 아직 없습니다.</p>'}</div>
+        <div class="narration${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, { lang: prefs.lang, joke: prefs.joke !== false }) : `<p class="muted">${empty}</p>`}</div>
         ${Panels.transition(st, prefs)}`;
     },
 
@@ -29,12 +34,14 @@
       if (i < 0 || i === stops.length - 1) return '';
       const next = Store.get('stations', stops[i + 1]);
       const row = Store.where('transitions', (t) => t.routeId === route.id && t.fromStationId === st.id && t.toStationId === next.id)[0];
-      if (!(row && row.text) && !Store.isUnlocked()) return '';   // 비전홀 구간처럼 대사 안에 이동 멘트가 있는 곳은 빈 상자를 숨김
+      const en = prefs && prefs.lang === 'en';
+      const txt = row ? (en ? row.textEn : row.text) : '';
+      if (!txt && !Store.isUnlocked()) return '';   // 비전홀 구간처럼 대사 안에 이동 멘트가 있는 곳은 빈 상자를 숨김
       return `<div class="transition" style="--nar-size:${(prefs && prefs.font) || 18}px">
         <div class="tr-head">➜ 이동 멘트 · 다음 ${esc(next.no)}. ${esc(next.name)}
           ${row && row.status === '확인필요' ? '<span class="badge warn">초안 · 확인필요</span>' : ''}${badgeRecent(row)}
           <span class="grow"></span>${App.editBtn(`data-edit-transition="${route.id}|${st.id}|${next.id}"`, row ? '✎' : '+ 멘트 추가')}</div>
-        ${row && row.text ? `<p>${esc(row.text)}</p>` : `<small class="muted">${esc(route.name)}에 등록된 이동 멘트가 없습니다.</small>`}
+        ${txt ? (en ? `<div class="en" lang="en">${narration(txt, { lang: 'en', joke: prefs.joke !== false })}</div>` : `<p>${esc(txt)}</p>`) : `<small class="muted">${esc(route.name)}에 등록된 ${en ? '영문 ' : ''}이동 멘트가 없습니다.</small>`}
       </div>`;
     },
 
@@ -156,8 +163,8 @@
       const res = await form(`${st.no}. ${st.name} — 대사 수정`, [
         { key: 'name', label: '장소 이름' },
         { key: 'minutes', label: '목표 시간(분)', type: 'number' },
-        { key: 'scriptShort', label: '축약 스크립트', type: 'textarea', rows: 10, hint: '[소제목] 한 줄은 구간 제목, (영상 Play) 같은 괄호는 행동 칩으로 보입니다.' },
-        { key: 'scriptFull', label: '풀버전 스크립트', type: 'textarea', rows: 10 },
+        { key: 'script', label: '대사 (한국어)', type: 'textarea', rows: 10, hint: '[소제목] 한 줄은 구간 제목, 줄 맨 앞 (영상 Play) 같은 괄호는 행동 칩으로 보입니다.' },
+        { key: 'scriptEn', label: '대사 (English)', type: 'textarea', rows: 10, hint: '농담은 {{ 이렇게 }} 감싸면 “농담 넣기/빼기” 스위치로 켜고 끌 수 있습니다. [ ] 는 안내 표시(소리 내어 읽지 않음).' },
         { key: 'tips', label: '가이드 팁 (주의사항)', type: 'textarea', rows: 3 },
       ], st);
       if (res) Store.upsert('stations', Object.assign({}, st, res));
@@ -197,10 +204,11 @@
     async transition(key) {
       const [routeId, from, to] = key.split('|');
       const r = Store.where('transitions', (t) => t.routeId === routeId && t.fromStationId === from && t.toStationId === to)[0]
-        || { id: '', routeId, fromStationId: from, toStationId: to, text: '', status: '확정' };
+        || { id: '', routeId, fromStationId: from, toStationId: to, text: '', textEn: '', status: '확정' };
       const a = Store.get('stations', from), b = Store.get('stations', to), route = Store.get('routes', routeId);
       const res = await form(`이동 멘트 · ${a.no} → ${b.no}`, [
         { key: 'text', label: `${route.name}: ${a.name} → ${b.name}`, type: 'textarea', rows: 4 },
+        { key: 'textEn', label: 'English', type: 'textarea', rows: 3 },
         { key: 'status', label: '상태', type: 'select', options: ['확정', '확인필요'] },
       ], r, r.id ? { danger: '삭제' } : null);
       if (!res) return;
@@ -235,7 +243,8 @@
       const t = e.target.closest('button,[data-check]');
       if (!t) return;
       const d = t.dataset;
-      if (d.version) { const p = App.prefs.load(); p.version = d.version; App.prefs.save(p); App.rerender(); }
+      if (d.lang) { const p = App.prefs.load(); p.lang = d.lang; App.prefs.save(p); App.rerender(); }
+      else if ('joke' in d) { const p = App.prefs.load(); p.joke = p.joke === false; App.prefs.save(p); App.rerender(); }
       else if (d.font) { const p = App.prefs.load(); p.font = Math.max(14, Math.min(30, (p.font || 18) + Number(d.font) * 2)); App.prefs.save(p); App.rerender(); }
       else if (d.editStation) Edit.station(d.editStation);
       else if (d.editAction) Edit.action(d.editAction);
@@ -299,6 +308,7 @@
             <div class="seg big" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-type="${t}" class="${prefs.tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div>
             <span class="route-name muted">${esc(route.name)}</span>
           </div>
+          <div class="row lang-row"><span class="muted small">안내 언어</span>${Panels.langCtl(prefs)}</div>
           <div class="row summary"><span>정거장 <b>${stops.length}</b>곳 · 예상 <b>${App.minutesOf(route)}</b>분</span>
             <a class="btn primary big" href="#/run">▶ 투어 모드 시작</a></div>
           ${route.description ? `<small class="muted">${esc(route.description)}</small>` : ''}
@@ -323,6 +333,10 @@
           const r = Store.all('routes').find((x) => x.tourType === p.tourType);
           if (r) p.routeId = r.id;
           App.prefs.save(p); App.rerender();
+        } else if (t.dataset.lang) {
+          p.lang = t.dataset.lang; App.prefs.save(p); App.rerender();
+        } else if ('joke' in t.dataset) {
+          p.joke = p.joke === false; App.prefs.save(p); App.rerender();
         } else if (t.dataset.biz) {
           const b = t.dataset.biz; p.biz = p.biz || [];
           p.biz = p.biz.includes(b) ? p.biz.filter((x) => x !== b) : p.biz.concat(b);
@@ -404,10 +418,12 @@
           <button class="icon-btn" data-ask aria-label="받은 질문 메모">＋Q</button></header>
         <div class="run-progress"><span style="width:${Math.round((Math.min(s.idx, stops.length) / stops.length) * 100)}%"></span></div>`;
       if (done) {
-        const closing = (route.closing || '').replace(/\{가이드\}/g, '(본인 이름)');
+        const en = prefs.lang === 'en';
+        const closing = (en ? (route.closingEn || '') : (route.closing || '')).replace(/\{가이드\}/g, en ? '000' : '(본인 이름)');
         return `<section class="run">${top}
           <div class="run-body"><h2 class="run-st">투어 마무리</h2>
-            <div class="narration closing" style="--nar-size:${(prefs.font || 18) + 2}px"><p>${esc(closing)}</p></div>
+            <div class="nar-toolbar">${Panels.langCtl(prefs)}</div>
+            <div class="narration closing${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${(prefs.font || 18) + 2}px">${en ? narration(closing, { lang: 'en', joke: prefs.joke !== false }) : `<p>${esc(closing)}</p>`}</div>
             <div class="card soft"><h4>마무리 후 할 일</h4><ul class="plain"><li>특송장 연계 시 센터 담당자 / 영업사원에게 인계</li><li>받은 질문을 투어 기록에 남기기</li></ul></div>
             <a class="btn primary big block" href="#/post" data-finish>투어 종료 · 투어 기록 작성</a>
           </div>

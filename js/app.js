@@ -7,8 +7,8 @@
     // 현재 투어 설정 (기기별로 기억)
     prefs: {
       load() {
-        try { return Object.assign({ routeId: 'r_basic', tourType: '일반', biz: [], guide: '', version: 'short', font: 18 }, JSON.parse(localStorage.getItem('tdl.prefs') || '{}')); }
-        catch (e) { return { routeId: 'r_basic', tourType: '일반', biz: [], guide: '', version: 'short', font: 18 }; }
+        try { return Object.assign({ routeId: 'r_basic', tourType: '일반', biz: [], guide: '', lang: 'ko', joke: true, font: 18 }, JSON.parse(localStorage.getItem('tdl.prefs') || '{}')); }
+        catch (e) { return { routeId: 'r_basic', tourType: '일반', biz: [], guide: '', lang: 'ko', joke: true, font: 18 }; }
       },
       save(p) { try { localStorage.setItem('tdl.prefs', JSON.stringify(p)); } catch (e) { /* 무시 */ } },
     },

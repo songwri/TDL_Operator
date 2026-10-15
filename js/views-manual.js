@@ -15,6 +15,10 @@
       ['check', '종료 확인', '충전 위치 복귀, 에러 없음 확인 등'],
     ],
   };
+  // 투어 전 항목의 구분: 열(사전준비·현장조작·기타가이드) + 선택적으로 입고/출고 (예: prep-in)
+  const PRE_SECTION_OPTS = [['prep', '사전준비'], ['prep-in', '사전준비 · 입고'], ['prep-out', '사전준비 · 출고'],
+    ['field', '현장조작'], ['field-in', '현장조작 · 입고'], ['field-out', '현장조작 · 출고'], ['etc', '기타가이드']];
+  const SUB_LABEL = { in: '입고', out: '출고' };
   const METHODS = [['', '미정'], ['WMS→WCS', 'WMS 등록 → SO번호 → WCS 전송'], ['직접', '설비 시스템에 직접 업로드'], ['기타', '기타 (본문에 설명)']];
 
   // 오늘 체크 상태: 기기별·날짜별로 저장 (공유 데이터 아님)
@@ -70,7 +74,7 @@
     const gs = gids.map((g) => Store.get('guides', g)).filter(Boolean);
     return `<div class="prep">
       ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
-      ${m.body ? `<p class="small">${esc(m.body).replace(/\n/g, '<br>')}</p>` : ''}
+      ${m.body ? `<p class="small">${esc(m.body).replace(/\n/g, '<br>').replace(/(0\d{1,2}-\d{3,4}-\d{4})/g, '<a href="tel:$1">$1</a>')}</p>` : ''}
       ${gs.length ? `<div class="prep-links">${gs.map((g) => `<a class="btn small" href="#/guide/${esc(g.id)}">${esc(g.title)} ›</a>`).join('')}</div>` : ''}
     </div>`;
   }
@@ -78,13 +82,25 @@
   // 투어 전 설비별 표: 행 = 설비(설정 preRows 순서), 열 = 사전준비 · 현장조작 · 기타가이드
   const PRE_ROWS = 's10,s9,s11,s6,s8,s7';
   const preRows = () => String(Store.setting('preRows', PRE_ROWS) || PRE_ROWS).split(',').map((x) => x.trim()).map((id) => Store.get('stations', id)).filter(Boolean);
-  const preCol = (m) => (SECTIONS.pre.some(([k]) => k === m.section) ? m.section : 'etc');
+  const preCol = (m) => { const c = String(m.section || '').split('-')[0]; return SECTIONS.pre.some(([k]) => k === c) ? c : 'etc'; };
+  const preSub = (m) => String(m.section || '').split('-')[1] || '';
 
+  // 사전준비만 “해야 할 일”이라 체크 대상. 현장조작·기타가이드는 확인용 참고(체크 없음)
   function matrixItem(m, checks) {
-    return `<div class="mx-item">
-      <div class="mx-item-head"><label class="check"><input type="checkbox" data-mcheck="${m.id}"${checks[m.id] ? ' checked' : ''}><b>${esc(m.title)}</b></label>
+    const task = preCol(m) === 'prep';
+    return `<div class="mx-item${task ? '' : ' ref'}">
+      <div class="mx-item-head">${task
+        ? `<label class="check"><input type="checkbox" data-mcheck="${m.id}"${checks[m.id] ? ' checked' : ''}><b>${esc(m.title)}</b></label>`
+        : `<b class="mx-title">${esc(m.title)}</b>`}
         ${badgeRecent(m)}${m.tourType !== 'all' ? `<span class="badge">${esc(m.tourType)}</span>` : ''}${App.editBtn(`data-edit-manual="${m.id}"`, '✎')}</div>
       ${prepHtml(m)}</div>`;
+  }
+
+  // 한 칸 안에서 구분 없는 항목 → 입고 → 출고 순으로, 구분이 있으면 소제목을 붙인다
+  function cellHtml(its, checks) {
+    const groups = [['', its.filter((m) => !preSub(m))], ['in', its.filter((m) => preSub(m) === 'in')], ['out', its.filter((m) => preSub(m) === 'out')]];
+    const hasSub = groups[1][1].length || groups[2][1].length;
+    return groups.filter(([, l]) => l.length).map(([k, l]) => `${hasSub && k ? `<h5 class="mx-sub ${k}">${SUB_LABEL[k]}</h5>` : ''}${l.map((m) => matrixItem(m, checks)).join('')}`).join('');
   }
 
   function matrixHtml(checks, tourType) {
@@ -93,14 +109,15 @@
       <div class="mx-head" aria-hidden="true"><span>설비</span>${cols.map(([, t]) => `<span>${t}</span>`).join('')}</div>
       ${preRows().map((st) => {
         const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === st.id && (m.tourType === 'all' || m.tourType === tourType)).sort((a, b) => a.order - b.order);
-        const doneN = items.filter((m) => checks[m.id]).length;
+        const tasks = items.filter((m) => preCol(m) === 'prep');
+        const doneN = tasks.filter((m) => checks[m.id]).length;
         return `<section class="mx-row card">
           <header class="mx-eq"><span class="st-no">${esc(st.no)}</span><span class="st-body"><b>${esc(st.name)}</b>
-            <small>${items.length ? `${doneN}/${items.length} 완료` : '항목 없음'}</small></span></header>
+            <small>${tasks.length ? `사전준비 ${doneN}/${tasks.length} 완료` : '사전준비 항목 없음'}</small></span></header>
           ${cols.map(([key, title, hint]) => {
             const its = items.filter((m) => preCol(m) === key);
             return `<div class="mx-cell"><h4 class="mx-label">${title}</h4>
-              ${its.length ? its.map((m) => matrixItem(m, checks)).join('') : `<div class="mx-empty" title="${esc(hint)}">작성 필요</div>`}
+              ${its.length ? cellHtml(its, checks) : `<div class="mx-empty" title="${esc(hint)}">작성 필요</div>`}
               ${App.editBtn(`data-add-manual="pre|${st.id}|${key}"`, '+ 추가')}</div>`;
           }).join('')}
         </section>`;
@@ -131,7 +148,7 @@
     const tourType = prefs.tourType || '일반';
     const isPre = phase === 'pre';
     const rowIds = isPre ? ['common'].concat(preRows().map((st) => st.id)) : null;
-    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType) && (!rowIds || rowIds.includes(m.stationId)));
+    const all = Store.where('manual', (m) => m.phase === phase && (m.tourType === 'all' || m.tourType === tourType) && (!rowIds || (rowIds.includes(m.stationId) && (m.stationId === 'common' || preCol(m) === 'prep'))));
     const doneN = all.filter((m) => checks[m.id]).length;
     const equip = App.stationsSorted().filter((s) => s.equipment && !s.optional);
     return `<section class="page manual-page">
@@ -203,7 +220,7 @@
       const [phase, stationId, section] = phaseStation.split('|');
       m = { id: '', phase, stationId, section: stationId === 'common' ? 'check' : (section || SECTIONS[phase][0][0]), title: '', body: '', method: '', tourType: 'all', system: '', guideIds: '', order: Store.all('manual').length + 1 };
     }
-    const secOpts = m.stationId === 'common' ? [['check', '체크 항목']] : SECTIONS[m.phase].map(([k, t]) => [k, t]);
+    const secOpts = m.stationId === 'common' ? [['check', '체크 항목']] : m.phase === 'pre' ? PRE_SECTION_OPTS.slice() : SECTIONS[m.phase].map(([k, t]) => [k, t]);
     if (m.phase === 'pre' && m.stationId !== 'common' && !secOpts.some(([k]) => k === m.section)) secOpts.push([m.section, m.section]);
     const fields = [
       { key: 'section', label: '구분', type: 'select', options: secOpts },

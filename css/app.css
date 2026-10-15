@@ -479,3 +479,18 @@ dialog.lightbox::backdrop { background: rgba(0, 0, 0, .8); }
   .mx-cell { border-top: 0; border-left: 1px solid var(--line); padding: 12px; }
   .mx-label { display: none; }
 }
+
+/* 입고/출고 소제목, 참고용(체크 없는) 항목 */
+.mx-sub { font-size: var(--fs-xs); letter-spacing: .04em; font-weight: 700; color: var(--primary); margin: 6px 0 -2px; display: flex; align-items: center; gap: 8px; }
+.mx-sub::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.mx-sub.out { color: var(--accent); }
+.mx-item.ref { background: transparent; border: 1px solid var(--line); }
+.mx-title { flex: 1; min-width: 0; }
+.mx-item .prep a[href^="tel:"] { font-weight: 700; white-space: nowrap; }
+
+/* 영문 대본: 농담은 표시해 두고, 스위치로 끈다 */
+.narration.en, .transition .en { letter-spacing: 0; word-break: normal; overflow-wrap: break-word; hyphens: auto; }
+.narration .joke { background: var(--common-bg); color: var(--common); border-radius: 6px; padding: 0 .3em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.narration .joke::before { content: "😄 "; font-size: .85em; }
+.lang-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.joke-toggle.on { background: var(--common-bg); color: var(--common); border-color: transparent; }

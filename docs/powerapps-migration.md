@@ -5,14 +5,14 @@ SharePoint 목록(또는 Dataverse 테이블)으로 가져오면 됩니다. 모�
 
 | 목록 | 열 | 비고 |
 |---|---|---|
-| **stations** 장소 | id, no, name, zone(비전홀/이노베이션필드/연계구간), x, y(도면 좌표 0–780 × 0–900), minutes, equipment(예/아니요), optional, scriptFull(여러 줄), scriptShort(여러 줄), tips, order | 도면 핀 위치와 나레이션 |
+| **stations** 장소 | id, no, name, zone(비전홀/이노베이션필드/연계구간), x, y(도면 좌표 0–780 × 0–900), minutes, equipment(예/아니요), optional, script(한국어 대사, 여러 줄), scriptEn(영문 대사 — {{농담}} 표시 포함), tips, order | 도면 핀 위치와 나레이션 |
 | **actions** 장소별 행동 | id, stationId→stations, text, tourType(all/일반/VIP), order | 체크 탭 |
 | **videos** 영상 | id, stationId, name, purpose, note | |
 | **specs** 설비 스펙 | id, stationId, group(한 장소에 설비가 여럿일 때, 예: 휴머노이드), field, value, status(확정/확인필요), note, order | 행 하나 = 스펙 한 칸. 항목 목록은 settings.specFields |
 | **qa** 질문·답변 | id, stationId, topic, question, answer, common(예/아니요), status, source, createdAt, createdBy | |
-| **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
-| **transitions** 동선별 이동 멘트 | id, routeId→routes, fromStationId, toStationId, text, status | 같은 장소라도 동선마다 다른 멘트 |
-| **manual** 투어 전/후 매뉴얼 | id, phase(pre/post), stationId(또는 common), section(투어 전: prep 사전준비 / field 현장조작 / etc 기타가이드 · 투어 후: cleanup/power/check · 공통: check), title, body(여러 줄), system, guideIds, method(WMS→WCS/직접/기타), tourType, order | 오류 대처 body는 “증상 \| 조치” 줄 |
+| **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing, closingEn | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
+| **transitions** 동선별 이동 멘트 | id, routeId→routes, fromStationId, toStationId, text, textEn, status | 같은 장소라도 동선마다 다른 멘트 |
+| **manual** 투어 전/후 매뉴얼 | id, phase(pre/post), stationId(또는 common), section(투어 전: prep 사전준비 · field 현장조작 · etc 기타가이드, 앞 둘은 -in(입고)/-out(출고) 접미사 가능 · 투어 후: cleanup/power/check · 공통: check), title, body(여러 줄), system, guideIds, method(WMS→WCS/직접/기타), tourType, order | 오류 대처 body는 “증상 \| 조치” 줄 |
 | **guides** 절차 가이드 | id, title, phase(pre/field/etc), stations(장소 id 쉼표 목록), summary, order | 시연 매뉴얼의 절차 묶음 |
 | **guideSteps** 가이드 단계 | id, guideId→guides, order, title, image(드라이브 이미지 파일 이름), body(여러 줄), note | 매뉴얼 슬라이드 1장 = 1단계 |
 | **contacts** 비상연락망 | id, role, org, name, phone, note | |

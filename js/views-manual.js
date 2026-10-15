@@ -70,13 +70,13 @@
     const gs = gids.map((g) => Store.get('guides', g)).filter(Boolean);
     return `<div class="prep">
       ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
-      ${m.body ? `<p class="small">${esc(m.body)}</p>` : ''}
+      ${m.body ? `<p class="small">${esc(m.body).replace(/\n/g, '<br>')}</p>` : ''}
       ${gs.length ? `<div class="prep-links">${gs.map((g) => `<a class="btn small" href="#/guide/${esc(g.id)}">${esc(g.title)} ›</a>`).join('')}</div>` : ''}
     </div>`;
   }
 
   // 투어 전 설비별 표: 행 = 설비(설정 preRows 순서), 열 = 사전준비 · 현장조작 · 기타가이드
-  const PRE_ROWS = 's10,s9,s6,s8,s7';
+  const PRE_ROWS = 's10,s9,s11,s6,s8,s7';
   const preRows = () => String(Store.setting('preRows', PRE_ROWS) || PRE_ROWS).split(',').map((x) => x.trim()).map((id) => Store.get('stations', id)).filter(Boolean);
   const preCol = (m) => (SECTIONS.pre.some(([k]) => k === m.section) ? m.section : 'etc');
 

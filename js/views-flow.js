@@ -9,7 +9,7 @@
     const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === sid && App.isPreTask(m) && (m.tourType === 'all' || m.tourType === tourType));
     const rank = (m) => (App.preCol(m) === 'prep' ? 0 : 10) + ({ '': 0, in: 1, out: 2 }[App.preSub(m)] || 0);
     items.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
-    const slides = [];
+    const slides = []; const seenG = new Set();
     items.forEach((m, mi) => {
       const ctx = `${COL[App.preCol(m)]}${App.preSub(m) ? ' · ' + SUB[App.preSub(m)] : ''}`;
       const base = { item: m, ctx, itemNo: mi + 1, itemN: items.length };
@@ -17,6 +17,8 @@
       const first = slides.length;
       if (!gs.length) { slides.push(Object.assign({ type: 'note' }, base)); return; }
       gs.forEach((g) => {
+        if (seenG.has(g.id)) { slides.push(Object.assign({ type: 'note', repeat: g }, base)); return; }   // 같은 가이드를 또 보여 주지 않고 안내만
+        seenG.add(g.id);
         const steps = App.guideSteps(g.id);
         if (!steps.length) slides.push(Object.assign({ type: 'note', guide: g, empty: true }, base));
         steps.forEach((s, i) => slides.push(Object.assign({ type: 'step', guide: g, step: s, gi: i + 1, gn: steps.length }, base)));
@@ -85,7 +87,8 @@
         body = `<h2 class="run-st">${esc(m.title)}</h2>
           ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
           ${m.body ? `<p class="flow-note">${esc(m.body).replace(/\n/g, '<br>').replace(/(0\d{1,2}-\d{3,4}-\d{4})/g, '<a href="tel:$1">$1</a>')}</p>` : ''}
-          ${s.empty ? `<div class="todo">✍️ ${esc(s.guide.title)} — 단계가 아직 없습니다</div>` : '<p class="muted">현장에서 직접 하는 항목입니다. 끝나면 ‘다음’을 누르세요.</p>'}`;
+          ${s.repeat ? `<p class="flow-note">앞에서 진행한 ‘${esc(s.repeat.title)}’와 같은 절차입니다. 이번에는 이 항목 용도의 오더로 같은 방법을 한 번 더 진행하세요.</p><a class="btn" href="#/guide/${esc(s.repeat.id)}">그 가이드 다시 보기 ›</a>` : ''}
+          ${s.empty ? `<div class="todo">✍️ ${esc(s.guide.title)} — 단계가 아직 없습니다</div>` : (s.repeat ? '' : '<p class="muted">직접 하는 항목입니다. 끝나면 ‘다음’을 누르세요.</p>')}`;
       }
       const nextS = slides[i + 1];
       const nextLabel = !nextS ? '' : nextS.type === 'done' ? '마치기' : (nextS.itemNo !== s.itemNo ? `다음 항목: ${nextS.item.title}` : nextS.guide && s.guide && nextS.guide.id !== s.guide.id ? `다음 가이드: ${nextS.guide.title}` : '다음');

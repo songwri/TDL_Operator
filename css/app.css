@@ -579,3 +579,8 @@ body[data-view="play"] { padding-bottom: 0; }
 .flow-strip button.cur { background: var(--primary); color: var(--primary-ink); }
 .flow-strip button small { opacity: .8; font-weight: 500; }
 .flow-strip .fs-sep { flex: none; color: var(--line-strong); font-size: var(--fs-xs); }
+/* 영문 대본의 한글 뜻 */
+.narration.en p { margin-bottom: .1em; }
+.narration .gloss, .transition .gloss { font-size: .72em; line-height: 1.55; color: var(--muted); margin: 0 0 .75em; letter-spacing: -.01em; word-break: keep-all; }
+.narration .nar-gap { display: block; height: .5em; }
+.narration .gloss .joke::before { content: ""; }

@@ -23,13 +23,19 @@
     t.split('\n').forEach((raw) => {
       const line = raw.trim();
       const prev = lines[lines.length - 1];
-      const startsNew = !line || /^[\[(（{\-•※]/.test(line) || /^\d+\)/.test(line);
-      if (prev && line && !startsNew && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]}]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
+      const startsNew = !line || /^[\[(（{>\-•※]/.test(line) || /^\d+\)/.test(line);
+      if (prev && line && !startsNew && !prev.startsWith('>') && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]}]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
       else lines.push(line);
     });
     return lines.map((raw) => {
       const line = raw.trim();
-      if (!line) return '';
+      if (!line) return o.lang === 'en' ? '<span class="nar-gap"></span>' : '';
+      // "> 한글 뜻": 바로 위 영문 문장의 뜻 (작게)
+      if (line.startsWith('>')) {
+        const ko = line.slice(1).trim().replace('[your name]', '[본인 이름]');
+        if (!ko || o.gloss === false) return '';
+        return `<p class="gloss" lang="ko">${esc(ko).replace(/\{\{([\s\S]+?)\}\}/g, '<span class="joke">$1</span>')}</p>`;
+      }
       const head = line.match(/^\[([^\]]+)\]$/);
       if (head) return `<h4 class="nar-seg">${esc(head[1])}</h4>`;
       let h = esc(line);

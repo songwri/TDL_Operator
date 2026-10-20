@@ -9,7 +9,8 @@
       const en = prefs.lang === 'en';
       return `<div class="seg" role="group" aria-label="안내 언어">
           <button data-lang="ko" class="${en ? '' : 'on'}">한국어</button><button data-lang="en" class="${en ? 'on' : ''}">English</button></div>
-        ${en ? `<button class="btn small ghost joke-toggle${prefs.joke === false ? '' : ' on'}" data-joke aria-pressed="${prefs.joke === false ? 'false' : 'true'}">😄 농담 ${prefs.joke === false ? '빼기' : '넣기'}</button>` : ''}`;
+        ${en ? `<button class="btn small ghost joke-toggle${prefs.gloss === false ? '' : ' on'}" data-gloss aria-pressed="${prefs.gloss === false ? 'false' : 'true'}">가 한글 뜻</button>` : ''}
+        ${en ? `<button class="btn small ghost joke-toggle${prefs.joke === false ? '' : ' on'}" data-joke aria-pressed="${prefs.joke === false ? 'false' : 'true'}">😄 농담</button>` : ''}`;
     },
 
     narration(st, prefs, opts) {
@@ -22,7 +23,7 @@
           ${App.editBtn(`data-edit-station="${st.id}"`, '✎ 대사 수정')}
         </div>
         ${st.tips ? `<div class="tip"><b>가이드 팁</b><br>${esc(st.tips).replace(/\n/g, "<br>")}</div>` : ''}
-        <div class="narration${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, { lang: prefs.lang, joke: prefs.joke !== false }) : `<p class="muted">${empty}</p>`}</div>
+        <div class="narration${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${prefs.font || 18}px">${text ? narration(text, { lang: prefs.lang, joke: prefs.joke !== false, gloss: prefs.gloss !== false }) : `<p class="muted">${empty}</p>`}</div>
         ${Panels.transition(st, prefs)}`;
     },
 
@@ -41,7 +42,7 @@
         <div class="tr-head">➜ 이동 멘트 · 다음 ${esc(next.no)}. ${esc(next.name)}
           ${row && row.status === '확인필요' ? '<span class="badge warn">초안 · 확인필요</span>' : ''}${badgeRecent(row)}
           <span class="grow"></span>${App.editBtn(`data-edit-transition="${route.id}|${st.id}|${next.id}"`, row ? '✎' : '+ 멘트 추가')}</div>
-        ${txt ? (en ? `<div class="en" lang="en">${narration(txt, { lang: 'en', joke: prefs.joke !== false })}</div>` : `<p>${esc(txt)}</p>`) : `<small class="muted">${esc(route.name)}에 등록된 ${en ? '영문 ' : ''}이동 멘트가 없습니다.</small>`}
+        ${txt ? (en ? `<div class="en" lang="en">${narration(txt, { lang: 'en', joke: prefs.joke !== false, gloss: prefs.gloss !== false })}</div>` : `<p>${esc(txt)}</p>`) : `<small class="muted">${esc(route.name)}에 등록된 ${en ? '영문 ' : ''}이동 멘트가 없습니다.</small>`}
       </div>`;
     },
 
@@ -245,6 +246,7 @@
       const d = t.dataset;
       if (d.lang) { const p = App.prefs.load(); p.lang = d.lang; App.prefs.save(p); App.rerender(); }
       else if ('joke' in d) { const p = App.prefs.load(); p.joke = p.joke === false; App.prefs.save(p); App.rerender(); }
+      else if ('gloss' in d) { const p = App.prefs.load(); p.gloss = p.gloss === false; App.prefs.save(p); App.rerender(); }
       else if (d.font) { const p = App.prefs.load(); p.font = Math.max(14, Math.min(30, (p.font || 18) + Number(d.font) * 2)); App.prefs.save(p); App.rerender(); }
       else if (d.editStation) Edit.station(d.editStation);
       else if (d.editAction) Edit.action(d.editAction);
@@ -337,6 +339,8 @@
           p.lang = t.dataset.lang; App.prefs.save(p); App.rerender();
         } else if ('joke' in t.dataset) {
           p.joke = p.joke === false; App.prefs.save(p); App.rerender();
+        } else if ('gloss' in t.dataset) {
+          p.gloss = p.gloss === false; App.prefs.save(p); App.rerender();
         } else if (t.dataset.biz) {
           const b = t.dataset.biz; p.biz = p.biz || [];
           p.biz = p.biz.includes(b) ? p.biz.filter((x) => x !== b) : p.biz.concat(b);
@@ -423,7 +427,7 @@
         return `<section class="run">${top}
           <div class="run-body"><h2 class="run-st">투어 마무리</h2>
             <div class="nar-toolbar">${Panels.langCtl(prefs)}</div>
-            <div class="narration closing${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${(prefs.font || 18) + 2}px">${en ? narration(closing, { lang: 'en', joke: prefs.joke !== false }) : `<p>${esc(closing)}</p>`}</div>
+            <div class="narration closing${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${(prefs.font || 18) + 2}px">${en ? narration(closing, { lang: 'en', joke: prefs.joke !== false, gloss: prefs.gloss !== false }) : `<p>${esc(closing)}</p>`}</div>
             <div class="card soft"><h4>마무리 후 할 일</h4><ul class="plain"><li>특송장 연계 시 센터 담당자 / 영업사원에게 인계</li><li>받은 질문을 투어 기록에 남기기</li></ul></div>
             <a class="btn primary big block" href="#/close" data-finish>투어 종료 · 투어 기록 작성</a>
           </div>

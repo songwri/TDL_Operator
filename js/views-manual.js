@@ -62,7 +62,7 @@
             ${badgeRecent(m)}${m.tourType !== 'all' ? `<span class="badge">${esc(m.tourType)}</span>` : ''}
             ${App.editBtn(`data-edit-manual="${m.id}"`, '✎')}</header>
           ${key === 'upload' ? methodFlow(m.method) : ''}
-          ${key === 'prep' ? prepHtml(m) : bodyHtml(m, hint)}
+          ${key === 'prep' || m.guideIds ? prepHtml(m) : bodyHtml(m, hint)}
         </section>`).join('')).join('')}
       ${App.editBtn(`data-add-manual="${phase}|${st.id}"`, '+ 항목 추가')}
     </details>`;
@@ -235,6 +235,7 @@
       fields.splice(2, 0, { key: 'system', label: '시스템', placeholder: '예: GO Wing & GSI' },
         { key: 'guideIds', label: '관련 절차 가이드 id (쉼표로 구분)', hint: `예: g_in_plt,g_label — 지금 있는 가이드: ${App.guidesFor(null).map((g) => g.id).join(', ')}` });
     }
+    if (m.phase === 'post' && m.stationId !== 'common') fields.splice(3, 0, { key: 'guideIds', label: '관련 절차 가이드 id (쉼표로 구분)', hint: `지금 있는 가이드: ${App.guidesFor(null).map((g) => g.id).join(', ')}` });
     const res = await form(id ? '매뉴얼 항목 수정' : '매뉴얼 항목 추가', fields, m, id ? { danger: '삭제' } : null);
     if (!res) return;
     if (res._action === 'delete') Store.remove('manual', id); else Store.upsert('manual', Object.assign({}, m, res));

@@ -1,7 +1,7 @@
 /* 절차 가이드: 사전 준비 매뉴얼의 슬라이드 이미지 + 단계별 설명 */
 (function () {
   const { esc, $, $$, form, toast } = UI;
-  const PHASE = { pre: '사전 준비', field: '현장 조작', etc: '기타 가이드' };
+  const PHASE = { pre: '사전 준비', field: '현장 조작', etc: '기타 가이드', post: '정리' };
 
   // ───────── 매뉴얼 이미지 ─────────
   App.shot = (name, alt) => name

@@ -12,10 +12,10 @@ SharePoint 목록(또는 Dataverse 테이블)으로 가져오면 됩니다. 모�
 | **qa** 질문·답변 | id, stationId, topic, question, answer, common(예/아니요), status, source, createdAt, createdBy | |
 | **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing, closingEn | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
 | **transitions** 동선별 이동 멘트 | id, routeId→routes, fromStationId, toStationId, text, textEn, status | 같은 장소라도 동선마다 다른 멘트 |
-| **manual** 투어 전/후 매뉴얼 | id, phase(pre/post), stationId(또는 common), section(투어 전: prep 사전준비 · field 현장조작 · etc 기타가이드, 앞 둘은 -in(입고)/-out(출고) 접미사 가능 · 투어 후: cleanup/power/check · 공통: check), title, body(여러 줄), system, guideIds, method(WMS→WCS/직접/기타), tourType, order | 오류 대처 body는 “증상 \| 조치” 줄 |
-| **guides** 절차 가이드 | id, title, phase(pre/field/etc), stations(장소 id 쉼표 목록), summary, order | 시연 매뉴얼의 절차 묶음 |
+| **manual** 체크 항목 | id, phase(pre/post), stationId(설비 id 또는 common), section(check 공통 · field 현장 체크), title, body, tourType, routine(오늘 준비 루틴 순서), closeRoutine, order | 공통 체크와 현장 체크만. 설비 절차는 guides |
+| **guides** 설비별 매뉴얼 | id, title, equip(설비 id), kind(pc PC 사전작업 / prep 시연 준비 / demo 시연 / close 정리 / ref 참고), variant(버튼 이름: 입고·출고·P2P 등), optional(필요 시), routine(오늘 준비 루틴 순서), closeRoutine(정리 루틴 순서), stations(투어 중 보여 줄 장소), summary, order | 시연 매뉴얼 v3.1의 구분 그대로 |
 | **guideSteps** 가이드 단계 | id, guideId→guides, order, title, image(드라이브 이미지 파일 이름), body(여러 줄), note | 매뉴얼 슬라이드 1장 = 1단계 |
-| **contacts** 비상연락망 | id, role, org, name, phone, note | |
+| **contacts** 비상연락망 | id, role, org, name, phone, note, stations(관련 설비) | |
 | **tourLogs** 투어 기록 | id, date, customer, tourType, guide, routeId, headcount, minutes, notes, createdAt, createdBy | |
 | **history** 변경 이력 | id, table, rowId, action, before(JSON), after(JSON), at, by | SharePoint 자체 버전 기록으로 대체 가능 |
 | **settings** 설정 | key, value | recentDays(“수정됨” 표시 일수, 기본 3), preRows(투어 전 설비별 표의 행 — 장소 id 쉼표 구분), specFields(JSON 배열), businesses(JSON 배열) |

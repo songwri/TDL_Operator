@@ -1,7 +1,7 @@
 /* 절차 가이드: 사전 준비 매뉴얼의 슬라이드 이미지 + 단계별 설명 */
 (function () {
   const { esc, $, $$, form, toast } = UI;
-  const PHASE = { pre: '사전 준비', field: '현장 조작', etc: '기타 가이드', post: '정리' };
+  const PHASE = new Proxy({}, { get: (o, k) => (App.KIND_LABEL || {})[k] || '' });
 
   // ───────── 매뉴얼 이미지 ─────────
   App.shot = (name, alt) => name
@@ -61,29 +61,29 @@
   const loadCk = () => { try { return JSON.parse(localStorage.getItem(ckKey()) || '{}'); } catch (e) { return {}; } };
   const saveCk = (c) => { try { localStorage.setItem(ckKey(), JSON.stringify(c)); } catch (e) { /* 무시 */ } };
 
-  App.guidesFor = (stationId, phases) => Store.all('guides')
-    .filter((g) => (!stationId || String(g.stations || '').split(',').includes(stationId)) && (!phases || phases.includes(g.phase)))
+  App.guidesFor = (stationId, kinds) => Store.all('guides')
+    .filter((g) => (!stationId || String(g.stations || g.equip || '').split(',').includes(stationId)) && (!kinds || kinds.includes(g.kind)))
     .sort((a, b) => a.order - b.order);
   App.guideSteps = (gid) => Store.where('guideSteps', (s) => s.guideId === gid).sort((a, b) => a.order - b.order);
 
   App.guideLink = (g) => {
     const n = App.guideSteps(g.id).length;
-    return `<a class="g-link" href="#/guide/${esc(g.id)}"><span class="badge">${esc(PHASE[g.phase] || g.phase)}</span>
+    return `<a class="g-link" href="#/play/g~${esc(g.id)}/0"><span class="badge">${esc(PHASE[g.kind] || '')}</span>
       <b>${esc(g.title)}</b><small>${n ? `${n}단계` : '작성 필요'}</small><span class="chev" aria-hidden="true">›</span></a>`;
   };
 
   App.views.guide = {
-    nav: 'pre',
+    nav: 'prep',
     render(id) {
       const g = Store.get('guides', id);
-      if (!g) return '<section class="page"><p>가이드를 찾을 수 없습니다.</p><a href="#/pre">투어 전으로</a></section>';
+      if (!g) return '<section class="page"><p>가이드를 찾을 수 없습니다.</p><a href="#/prep">준비로</a></section>';
       const steps = App.guideSteps(id);
       const ck = loadCk();
       const done = steps.filter((s) => ck[s.id]).length;
       return `<section class="page guide-page">
         <button class="back linkish" data-back>‹ 뒤로</button>
         <header class="page-head"><div>
-          <span class="badge">${esc(PHASE[g.phase] || g.phase)}</span>
+          <span class="badge">${esc(PHASE[g.kind] || '')}</span>
           <h2>${esc(g.title)} ${UI.badgeRecent(g)}</h2>
           ${g.summary ? `<p class="muted small g-summary">${esc(g.summary)}</p>` : ''}
         </div>${App.editBtn(`data-edit-guide="${esc(id)}"`, '✎ 가이드 정보')}</header>
@@ -103,7 +103,7 @@
     mount(root) {
       App.loadShots(root);
       root.addEventListener('click', async (e) => {
-        if (e.target.closest('[data-back]')) { if (history.length > 1) history.back(); else App.navigate('#/pre'); return; }
+        if (e.target.closest('[data-back]')) { if (history.length > 1) history.back(); else App.navigate('#/prep'); return; }
         const j = e.target.closest('[data-jump]');
         if (j) { e.preventDefault(); const el = document.getElementById('gs-' + j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         const t = e.target.closest('button'); if (!t) return;
@@ -137,11 +137,17 @@
     const res = await form('가이드 정보', [
       { key: 'title', label: '제목', required: true },
       { key: 'summary', label: '요약', type: 'textarea', rows: 3 },
-      { key: 'phase', label: '구분', type: 'select', options: [['pre', '사전 준비'], ['field', '현장 조작'], ['etc', '기타 가이드']] },
-      { key: 'stations', label: '관련 장소 (쉼표로 구분)', hint: '예: s10,s9 — 해당 장소 화면의 체크 탭에 이 가이드가 보입니다' },
-    ], g);
-    if (res) Store.upsert('guides', Object.assign({}, g, res));
+      { key: 'equip', label: '설비', type: 'select', options: App.equipTabs().map((t) => [t.id, t.short]) },
+      { key: 'kind', label: '구분', type: 'select', options: Object.entries(App.KIND_LABEL).filter(([k]) => k !== 'field') },
+      { key: 'variant', label: '버튼 이름 (예: 입고, 출고, P2P — 비우면 제목)' },
+      { key: 'optional', label: '필요할 때만 하는 매뉴얼', type: 'select', options: [['false', '아니요'], ['true', '예 (필요 시)']] },
+      { key: 'routine', label: '오늘 준비 루틴 순서 (비우면 루틴에서 빠짐)', type: 'number' },
+      { key: 'closeRoutine', label: '정리 루틴 순서 (비우면 빠짐)', type: 'number' },
+      { key: 'stations', label: '투어 중 보여 줄 장소 (쉼표로 구분)', hint: '예: s9,s11 — 그 장소의 투어 화면 ‘체크’ 탭에 시연 · 참고 매뉴얼이 보입니다' },
+    ], Object.assign({}, g, { optional: String(g.optional) }));
+    if (res) Store.upsert('guides', Object.assign({}, g, res, { optional: res.optional === 'true' }));
   }
+  App.editGuide = editGuide;
 
   App.guideStepBody = stepBody;
 })();

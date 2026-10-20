@@ -1,135 +1,148 @@
-/* 이어서 진행: 설비 하나의 사전준비·현장조작을 슬라이드처럼 한 화면씩 넘기며 끝까지 진행한다 (목록으로 나가지 않음) */
+/* 매뉴얼 진행(슬라이드형): 한 화면에 사진 한 장 · 단계 하나. ‘다음’만 누르면 완료 처리하며 끝까지 이어진다.
+   #/play/routine/<n>  오늘 준비 루틴   #/play/close/<n>  정리 루틴   #/play/g~<가이드id>/<n>  가이드 하나
+   <n> 자리에 @<항목번호>를 주면 그 항목의 첫 화면부터 */
 (function () {
-  const { esc, $, $$ } = UI;
-  const COL = { prep: '사전준비', field: '현장조작' };
-  const SUB = { in: '입고', out: '출고' };
+  const { esc } = UI;
 
-  // 설비의 체크 항목(사전준비 → 현장조작, 구분 없음 → 입고 → 출고)을 가이드 단계 단위 슬라이드로 펼친다
-  App.flowSlides = (sid, tourType) => {
-    const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === sid && App.isPreTask(m) && (m.tourType === 'all' || m.tourType === tourType));
-    const rank = (m) => (App.preCol(m) === 'prep' ? 0 : 10) + ({ '': 0, in: 1, out: 2 }[App.preSub(m)] || 0);
-    items.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
-    const slides = []; const seenG = new Set();
-    items.forEach((m, mi) => {
-      const ctx = `${COL[App.preCol(m)]}${App.preSub(m) ? ' · ' + SUB[App.preSub(m)] : ''}`;
-      const base = { item: m, ctx, itemNo: mi + 1, itemN: items.length };
-      const gs = String(m.guideIds || '').split(',').map((x) => x.trim()).map((g) => Store.get('guides', g)).filter(Boolean);
-      const first = slides.length;
-      if (!gs.length) { slides.push(Object.assign({ type: 'note' }, base)); return; }
-      gs.forEach((g) => {
-        if (seenG.has(g.id)) { slides.push(Object.assign({ type: 'note', repeat: g }, base)); return; }   // 같은 가이드를 또 보여 주지 않고 안내만
-        seenG.add(g.id);
-        const steps = App.guideSteps(g.id);
-        if (!steps.length) slides.push(Object.assign({ type: 'note', guide: g, empty: true }, base));
-        steps.forEach((s, i) => slides.push(Object.assign({ type: 'step', guide: g, step: s, gi: i + 1, gn: steps.length }, base)));
+  // 화면 목록 만들기. 루틴에서는 같은 사진 · 같은 설명의 단계(예: AMR P2P와 오더피킹의 공통 전원 단계)를 한 번만 보여 준다
+  function build(key) {
+    const slides = []; const starts = [];
+    const seen = new Map();   // 같은 내용 → 처음 보여 준 화면
+    const pushGuide = (g, ctx, dedupe) => {
+      const steps = App.guideSteps(g.id);
+      if (!steps.length) { slides.push({ type: 'empty', guide: g, ctx }); return; }
+      steps.forEach((s, i) => {
+        const sig = `${s.image}|${s.title}|${s.body}`;
+        if (dedupe && seen.has(sig)) { seen.get(sig).dups.push(s.id); return; }   // 앞 화면을 넘기면 이 단계도 함께 완료
+        const sl = { type: 'step', guide: g, step: s, gi: i + 1, gn: steps.length, ctx, dups: [] };
+        seen.set(sig, sl); slides.push(sl);
       });
-      slides[first].first = true;
-    });
+    };
+    if (key === 'routine' || key === 'close') {
+      App.routineEntries(key === 'close' ? 'close' : 'prep').forEach((e, i) => {
+        starts[i] = slides.length;
+        if (e.type === 'guide') {
+          const g = e.guide;
+          pushGuide(g, { group: e.group, title: g.variant ? `${App.stName(g.equip)} ${g.variant}` : g.title, equip: App.stName(g.equip) }, true);
+        } else slides.push({ type: 'note', item: e.item, phase: e.phase, ctx: { group: e.group, title: e.item.title, equip: e.item.stationId === 'common' ? '' : App.stName(e.item.stationId) } });
+      });
+    } else if (key.startsWith('g~')) {
+      const g = Store.get('guides', key.slice(2));
+      if (g) pushGuide(g, { group: App.KIND_LABEL[g.kind] || '', title: g.variant ? `${App.stName(g.equip)} ${g.variant}` : g.title, equip: App.stName(g.equip) }, false);
+    }
     if (slides.length) slides.push({ type: 'done' });
-    return slides;
-  };
-
-  const checkKey = () => `tdl.check.pre.${Store.today()}`;
-  function markItemDone(id) {
-    try {
-      const c = JSON.parse(localStorage.getItem(checkKey()) || '{}');
-      c[id] = true; localStorage.setItem(checkKey(), JSON.stringify(c));
-    } catch (e) { /* 무시 */ }
+    return { slides, starts };
   }
-  const ckKey = () => `tdl.gcheck.${Store.today()}`;
-  function markStepDone(id) {
-    try { const c = JSON.parse(localStorage.getItem(ckKey()) || '{}'); c[id] = true; localStorage.setItem(ckKey(), JSON.stringify(c)); } catch (e) { /* 무시 */ }
-  }
+  App.playSlides = (key) => build(key).slides;
 
-  const parse = (arg) => { const [sid, n] = String(arg || '').split('/'); return { sid, idx: Math.max(0, Number(n) || 0) }; };
-  const go = (sid, idx) => { history.replaceState(null, '', `#/flow/${sid}/${idx}`); App.render(); };   // 뒤로가기 기록을 쌓지 않는다
+  const parse = (arg) => { const m = String(arg || '').match(/^([^/]+)\/?(.*)$/) || []; return { key: m[1] || '', pos: m[2] || '0' }; };
+  const exitTo = (key) => (key === 'close' ? '#/close' : key.startsWith('g~') ? `#/prep/${(Store.get('guides', key.slice(2)) || {}).equip || ''}` : '#/prep');
+  const go = (key, idx) => { history.replaceState(null, '', `#/play/${key}/${idx}`); App.render(); };   // 화면마다 뒤로가기 기록을 쌓지 않는다
 
-  function nextStation(sid, tourType) {
-    const rows = App.preRows();
-    const i = rows.findIndex((s) => s.id === sid);
-    return rows.slice(i + 1).find((s) => App.flowSlides(s.id, tourType).length > 1) || null;
+  // 가이드 하나를 마친 뒤 이어서 할 것: 같은 설비의 다음 가이드
+  function nextGuide(g) {
+    const list = Store.all('guides').filter((x) => x.equip === g.equip).sort((a, b) => a.order - b.order);
+    const i = list.findIndex((x) => x.id === g.id);
+    return list[i + 1] || null;
   }
 
-  App.views.flow = {
-    nav: 'pre',
+  App.views.play = {
+    nav: 'prep',
     render(arg) {
-      const { sid, idx } = parse(arg);
-      const st = Store.get('stations', sid);
-      const tourType = App.prefs.load().tourType || '일반';
-      const slides = st ? App.flowSlides(sid, tourType) : [];
-      if (!st || !slides.length) return `<section class="page"><p>이 설비는 진행할 준비 항목이 없습니다.</p><a href="#/pre">투어 전으로</a></section>`;
-      const i = Math.min(idx, slides.length - 1);
+      const { key, pos } = parse(arg);
+      const { slides, starts } = build(key);
+      const back = exitTo(key);
+      if (!slides.length) return `<section class="page"><p>진행할 매뉴얼이 없습니다.</p><a href="${back}">돌아가기</a></section>`;
+      let i = pos.startsWith('@') ? (starts[Number(pos.slice(1))] ?? 0) : Number(pos) || 0;
+      i = Math.max(0, Math.min(i, slides.length - 1));
+      this._i = i; this._key = key; this._n = slides.length;
       const s = slides[i];
+      const total = slides.length - 1;
+      const head = s.ctx || {};
       const top = `<header class="run-top">
-          <button class="icon-btn" data-flow-exit aria-label="진행 종료">✕</button>
-          <div class="run-title"><b>${esc(st.name)}</b><small>${s.type === 'done' ? '완료' : `${i + 1} / ${slides.length - 1}`}${s.type !== 'done' ? ` · 항목 ${s.itemNo}/${s.itemN}` : ''}</small></div>
-          <details class="flow-toc"><summary class="icon-btn" aria-label="목차">☰</summary>
-            <ol>${slides.map((x, k) => (x.first || (x.type === 'note' && !x.empty && x.itemNo !== (slides[k - 1] || {}).itemNo)) ? `<li><button data-flow-jump="${k}" class="${k === i ? 'on' : ''}">${esc(x.ctx)} · ${esc(x.item.title)}</button></li>` : '').join('')}</ol></details>
+          <a class="icon-btn" href="${back}" aria-label="진행 종료">✕</a>
+          <div class="run-title"><b>${esc(key === 'routine' ? '오늘 준비 루틴' : key === 'close' ? '정리 루틴' : (head.title || ''))}</b>
+            <small>${s.type === 'done' ? '완료' : `${i + 1} / ${total}`}</small></div>
+          <details class="flow-toc"><summary class="icon-btn" aria-label="목차">☰</summary>${tocHtml(slides, i)}</details>
         </header>
-        <div class="run-progress"><span style="width:${Math.round((i / (slides.length - 1)) * 100)}%"></span></div>`;
+        <div class="run-progress"><span style="width:${Math.round((i / total) * 100)}%"></span></div>`;
 
       if (s.type === 'done') {
-        const nx = nextStation(sid, tourType);
-        return `<section class="run">${top}<div class="run-body">
-            <h2 class="run-st">✓ ${esc(st.name)} 준비 완료</h2>
-            <p class="muted">체크한 항목은 투어 전 화면에 완료로 표시됩니다.</p>
-            ${nx ? `<a class="btn primary big block" href="#/flow/${esc(nx.id)}/0">다음 설비: ${esc(nx.name)} ▶</a>` : '<p><b>모든 설비의 준비 안내를 마쳤습니다.</b></p>'}
-            <a class="btn ghost big block" href="#/pre">투어 전 화면으로</a></div>
-          <nav class="run-nav"><button class="btn ghost big" data-flow-prev>‹ 이전</button><span></span></nav></section>`;
+        let next = '';
+        if (key === 'routine') next = '<a class="btn primary big block" href="#/tour">투어 화면으로 ▶</a>';
+        else if (key === 'close') next = '<button class="btn primary big block" data-write-log>투어 기록 작성 ▶</button>';
+        else { const g = Store.get('guides', key.slice(2)); const n = g && nextGuide(g); if (n) next = `<a class="btn primary big block" href="#/play/g~${esc(n.id)}/0">다음: ${esc(n.variant ? `${App.stName(n.equip)} ${n.variant}` : n.title)} ▶</a>`; }
+        return `<section class="run">${top}<div class="run-body done-body">
+            <div class="done-mark" aria-hidden="true">✓</div>
+            <h2 class="run-st">${key === 'routine' ? '오늘 준비를 모두 마쳤습니다' : key === 'close' ? '정리를 모두 마쳤습니다' : '이 매뉴얼을 모두 마쳤습니다'}</h2>
+            <p class="muted">‘다음’으로 넘긴 단계는 오늘 날짜로 완료 표시됩니다.</p>
+            ${next}<a class="btn ghost big block" href="${back}">목록으로</a></div>
+          <nav class="run-nav"><button class="btn ghost big" data-prev>‹ 이전</button><span></span></nav></section>`;
       }
-      const m = s.item;
-      let body;
+
+      let body = '';
       if (s.type === 'step') {
-        body = `<div class="flow-guide">${esc(s.guide.title)} <span class="muted">· 단계 ${s.gi}/${s.gn}</span></div>
-          <h2 class="run-st">${esc(s.step.title)}</h2>
-          <div class="g-grid flow-grid">${App.shot(s.step.image)}<div class="g-text">${App.guideStepBody(s.step.body)}${s.step.note ? `<p class="g-note">${esc(s.step.note)}</p>` : ''}</div></div>`;
+        const st = s.step;
+        body = `<div class="flow-guide">${esc(s.guide.title)} <span class="muted">· ${s.gi}/${s.gn}</span></div>
+          <h2 class="run-st">${esc(st.title)}</h2>
+          <div class="g-grid flow-grid">${App.shot(st.image)}<div class="g-text">${App.guideStepBody(st.body)}${st.note ? `<p class="g-note">${esc(st.note)}</p>` : ''}</div></div>`;
+      } else if (s.type === 'note') {
+        const m = s.item;
+        body = `<h2 class="run-st big">${esc(m.title)}</h2>${m.body ? `<p class="flow-note">${App.richText(m.body)}</p>` : ''}
+          <p class="muted small">확인했으면 ‘다음’을 누르세요.</p>`;
       } else {
-        body = `<h2 class="run-st">${esc(m.title)}</h2>
-          ${m.system && m.system !== '-' ? `<span class="chip sys">${esc(m.system)}</span>` : ''}
-          ${m.body ? `<p class="flow-note">${esc(m.body).replace(/\n/g, '<br>').replace(/(0\d{1,2}-\d{3,4}-\d{4})/g, '<a href="tel:$1">$1</a>')}</p>` : ''}
-          ${s.repeat ? `<p class="flow-note">앞에서 진행한 ‘${esc(s.repeat.title)}’와 같은 절차입니다. 이번에는 이 항목 용도의 오더로 같은 방법을 한 번 더 진행하세요.</p><a class="btn" href="#/guide/${esc(s.repeat.id)}">그 가이드 다시 보기 ›</a>` : ''}
-          ${s.empty ? `<div class="todo">✍️ ${esc(s.guide.title)} — 단계가 아직 없습니다</div>` : (s.repeat ? '' : '<p class="muted">직접 하는 항목입니다. 끝나면 ‘다음’을 누르세요.</p>')}`;
+        body = `<h2 class="run-st">${esc(s.guide.title)}</h2><div class="todo">✍️ 단계가 아직 없습니다 — 편집 모드에서 추가하세요</div>`;
       }
-      const nextS = slides[i + 1];
-      const nextLabel = !nextS ? '' : nextS.type === 'done' ? '마치기' : (nextS.itemNo !== s.itemNo ? `다음 항목: ${nextS.item.title}` : nextS.guide && s.guide && nextS.guide.id !== s.guide.id ? `다음 가이드: ${nextS.guide.title}` : '다음');
+      const n = slides[i + 1];
+      const label = !n || n.type === 'done' ? '완료' : (n.ctx && n.ctx.title !== head.title) ? `다음: ${n.ctx.title}` : '다음';
       return `<section class="run">${top}
         <div class="run-body">
-          <div class="flow-ctx"><span class="badge">${esc(s.ctx)}</span><b>${esc(m.title)}</b></div>
+          <div class="flow-ctx">${head.group ? `<span class="badge">${esc(head.group)}</span>` : ''}${head.equip ? `<span class="chip">${esc(head.equip)}</span>` : ''}<b>${esc(head.title || '')}</b></div>
           ${body}
         </div>
-        <nav class="run-nav"><button class="btn ghost big" data-flow-prev ${i === 0 ? 'disabled' : ''}>‹ 이전</button><button class="btn primary big" data-flow-next>${esc(nextLabel)} ›</button></nav></section>`;
+        <nav class="run-nav"><button class="btn ghost big" data-prev ${i === 0 ? 'disabled' : ''}>‹ 이전</button><button class="btn primary big" data-next>${esc(label)} ›</button></nav></section>`;
     },
     mount(root, arg) {
       App.loadShots(root);
-      const { sid, idx } = parse(arg);
-      const tourType = App.prefs.load().tourType || '일반';
-      const slides = App.flowSlides(sid, tourType);
-      if (!slides.length) return;
-      const i = Math.min(idx, slides.length - 1);
+      const key = this._key; const i = this._i;
+      const { slides } = build(key);
       const next = () => {
-        const s = slides[i]; const n = slides[i + 1];
-        if (s.type === 'step') markStepDone(s.step.id);
-        // 이 항목의 마지막 슬라이드를 넘기면 투어 전 체크도 자동으로 완료
-        if (s.item && (!n || n.type === 'done' || (n.item && n.item.id !== s.item.id))) markItemDone(s.item.id);
-        if (i < slides.length - 1) go(sid, i + 1);
+        const s = slides[i];
+        if (s.type === 'step') [s.step.id].concat(s.dups || []).forEach((id) => App.checks.setStep(id, true));
+        if (s.type === 'note') App.checks.setItem(s.phase, s.item.id, true);
+        if (i < slides.length - 1) go(key, i + 1);
       };
-      const prev = () => { if (i > 0) go(sid, i - 1); };
+      const prev = () => { if (i > 0) go(key, i - 1); };
       root.addEventListener('click', (e) => {
-        if (e.target.closest('[data-flow-next]')) next();
-        else if (e.target.closest('[data-flow-prev]')) prev();
-        else if (e.target.closest('[data-flow-exit]')) App.navigate('#/pre');
-        const j = e.target.closest('[data-flow-jump]'); if (j) go(sid, Number(j.dataset.flowJump));
+        if (e.target.closest('[data-next]')) next();
+        else if (e.target.closest('[data-prev]')) prev();
+        else if (e.target.closest('[data-write-log]')) { App.navigate('#/close'); setTimeout(() => App.editLog(''), 60); }
+        const j = e.target.closest('[data-jump]'); if (j) go(key, Number(j.dataset.jump));
       });
-      // 좌우 스와이프 · 방향키
       let x0 = null;
       root.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
       root.addEventListener('touchend', (e) => {
         if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
-        if (Math.abs(dx) > 70 && !e.target.closest('details')) { if (dx < 0) next(); else prev(); }
+        if (Math.abs(dx) > 70 && !e.target.closest('details, dialog')) { if (dx < 0) next(); else prev(); }
       });
-      this._key = (e) => { if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft') prev(); };
-      document.addEventListener('keydown', this._key);
+      this._keyh = (e) => { if (document.querySelector('dialog[open]')) return; if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft') prev(); };
+      document.addEventListener('keydown', this._keyh);
     },
-    unmount() { if (this._key) { document.removeEventListener('keydown', this._key); this._key = null; } },
+    unmount() { if (this._keyh) { document.removeEventListener('keydown', this._keyh); this._keyh = null; } },
   };
+
+  // 목차: 항목(가이드 · 체크)의 첫 화면
+  function tocHtml(slides, cur) {
+    const items = [];
+    slides.forEach((s, k) => {
+      const t = s.ctx && s.ctx.title; if (!t) return;
+      const prevT = k > 0 && slides[k - 1].ctx && slides[k - 1].ctx.title;
+      if (t !== prevT) items.push({ k, t, g: s.ctx.group, eq: s.ctx.equip });
+    });
+    let curItem = 0; items.forEach((x, n) => { if (x.k <= cur) curItem = n; });
+    return `<ol>${items.map((x, n) => `<li><button data-jump="${x.k}" class="${n === curItem ? 'on' : ''}"><small>${esc(x.g || '')}</small>${esc(x.t)}</button></li>`).join('')}</ol>`;
+  }
+
+  // 예전 주소 호환 (#/flow/설비)
+  App.views.flow = { nav: 'prep', render: () => '', mount: () => App.navigate('#/prep') };
 })();

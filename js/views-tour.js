@@ -49,8 +49,8 @@
       const list = Store.where('actions', (a) => a.stationId === st.id && (a.tourType === 'all' || a.tourType === prefs.tourType)).sort((a, b) => a.order - b.order);
       const biz = st.id === 's2' ? Panels.business() : '';
       const vids = Panels.videos(st);
-      const gs = App.guidesFor ? App.guidesFor(st.id, ['field', 'etc']) : [];
-      const guideBox = gs.length ? `<div class="card soft"><h4>시연 조작 가이드</h4>${gs.map(App.guideLink).join('')}</div>` : '';
+      const gs = App.guidesFor ? App.guidesFor(st.id, ['demo', 'ref']) : [];
+      const guideBox = gs.length ? `<div class="card soft"><h4>시연 매뉴얼</h4>${gs.map(App.guideLink).join('')}</div>` : '';
       return `${guideBox}${biz}${vids}
         <ul class="checklist">${list.map((a) => `<li>
           <label class="check"><input type="checkbox" data-check="${a.id}"${checks && checks[a.id] ? ' checked' : ''}><span>${esc(a.text)}</span></label>
@@ -425,7 +425,7 @@
             <div class="nar-toolbar">${Panels.langCtl(prefs)}</div>
             <div class="narration closing${en ? ' en' : ''}" lang="${en ? 'en' : 'ko'}" style="--nar-size:${(prefs.font || 18) + 2}px">${en ? narration(closing, { lang: 'en', joke: prefs.joke !== false }) : `<p>${esc(closing)}</p>`}</div>
             <div class="card soft"><h4>마무리 후 할 일</h4><ul class="plain"><li>특송장 연계 시 센터 담당자 / 영업사원에게 인계</li><li>받은 질문을 투어 기록에 남기기</li></ul></div>
-            <a class="btn primary big block" href="#/post" data-finish>투어 종료 · 투어 기록 작성</a>
+            <a class="btn primary big block" href="#/close" data-finish>투어 종료 · 투어 기록 작성</a>
           </div>
           <nav class="run-nav"><button class="btn ghost big" data-prev>‹ 이전</button><span></span></nav></section>`;
       }

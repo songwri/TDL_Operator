@@ -8,8 +8,8 @@
 (function () {
   const TABLES = ['settings', 'stations', 'actions', 'videos', 'specs', 'qa', 'routes', 'transitions', 'manual', 'contacts', 'tourLogs', 'history', 'guides', 'guideSteps'];
   // 시트에는 모든 값이 글자로 저장되므로 읽을 때 형을 되돌린다
-  const NUM = { stations: ['x', 'y', 'minutes', 'order'], actions: ['order'], specs: ['order'], manual: ['order'], tourLogs: ['headcount', 'minutes'], guides: ['order'], guideSteps: ['order'] };
-  const BOOL = { stations: ['equipment', 'optional'], qa: ['common'] };
+  const NUM = { stations: ['x', 'y', 'minutes', 'order'], actions: ['order'], specs: ['order'], manual: ['order', 'routine', 'closeRoutine'], tourLogs: ['headcount', 'minutes'], guides: ['order', 'routine', 'closeRoutine'], guideSteps: ['order'] };
+  const BOOL = { stations: ['equipment', 'optional'], qa: ['common'], guides: ['optional'] };
   // 배포 설정(config.js)의 주소가 있으면 항상 그것을 쓴다. 기기에 남은 예전 입력값보다 우선.
   const cfgUrl = () => String((window.TDL_CONFIG || {}).scriptUrl || '').trim();
 

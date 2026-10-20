@@ -4,6 +4,8 @@
 (function () {
   const { esc } = UI;
 
+  const whichOf = (key) => (key === 'close' ? 'close' : key === 'routine' ? 'field' : key.startsWith('r~') ? key.slice(2) : '');
+
   // 화면 목록 만들기. 루틴에서는 같은 사진 · 같은 설명의 단계(예: AMR P2P와 오더피킹의 공통 전원 단계)를 한 번만 보여 준다
   function build(key) {
     const slides = []; const starts = [];
@@ -18,9 +20,11 @@
         seen.set(sig, sl); slides.push(sl);
       });
     };
-    if (key === 'routine' || key === 'close') {
-      App.routineEntries(key === 'close' ? 'close' : 'prep').forEach((e, i) => {
+    const which = whichOf(key);
+    if (which) {
+      App.routineEntries(which).forEach((e, i) => {
         starts[i] = slides.length;
+        if (e.optional) return;   // ‘필요 시’ 매뉴얼은 이어서 진행에 넣지 않는다 (목록에서 따로 열기)
         if (e.type === 'guide') {
           const g = e.guide;
           pushGuide(g, { group: e.group, title: g.variant ? `${App.stName(g.equip)} ${g.variant}` : g.title, equip: App.stName(g.equip) }, true);
@@ -36,7 +40,7 @@
   App.playSlides = (key) => build(key).slides;
 
   const parse = (arg) => { const m = String(arg || '').match(/^([^/]+)\/?(.*)$/) || []; return { key: m[1] || '', pos: m[2] || '0' }; };
-  const exitTo = (key) => (key === 'close' ? '#/close' : key.startsWith('g~') ? `#/prep/${(Store.get('guides', key.slice(2)) || {}).equip || ''}` : '#/prep');
+  const exitTo = (key) => (key === 'close' ? '#/close' : key === 'routine' || key.startsWith('r~') ? '#/prep' : key.startsWith('g~') ? `#/prep/${(Store.get('guides', key.slice(2)) || {}).equip || ''}` : '#/prep');
   const go = (key, idx) => { history.replaceState(null, '', `#/play/${key}/${idx}`); App.render(); };   // 화면마다 뒤로가기 기록을 쌓지 않는다
 
   // 가이드 하나를 마친 뒤 이어서 할 것: 같은 설비의 다음 가이드
@@ -52,6 +56,7 @@
       const { key, pos } = parse(arg);
       const { slides, starts } = build(key);
       const back = exitTo(key);
+      const which = whichOf(key);
       if (!slides.length) return `<section class="page"><p>진행할 매뉴얼이 없습니다.</p><a href="${back}">돌아가기</a></section>`;
       let i = pos.startsWith('@') ? (starts[Number(pos.slice(1))] ?? 0) : Number(pos) || 0;
       i = Math.max(0, Math.min(i, slides.length - 1));
@@ -61,7 +66,7 @@
       const head = s.ctx || {};
       const top = `<header class="run-top">
           <a class="icon-btn" href="${back}" aria-label="진행 종료">✕</a>
-          <div class="run-title"><b>${esc(key === 'routine' ? '오늘 준비 루틴' : key === 'close' ? '정리 루틴' : (head.title || ''))}</b>
+          <div class="run-title"><b>${esc(which ? (App.CATS[which] || {}).label || '' : (head.title || ''))}</b>
             <small>${s.type === 'done' ? '완료' : `${i + 1} / ${total}`}</small></div>
           <details class="flow-toc"><summary class="icon-btn" aria-label="목차">☰</summary>${tocHtml(slides, i)}</details>
         </header>
@@ -70,12 +75,13 @@
 
       if (s.type === 'done') {
         let next = '';
-        if (key === 'routine') next = '<a class="btn primary big block" href="#/tour">투어 화면으로 ▶</a>';
+        if (which === 'order') next = '<a class="btn primary big block" href="#/play/r~field/0">현장 준비 시작 ▶</a>';
+        else if (which === 'field') next = '<a class="btn primary big block" href="#/tour">투어 화면으로 ▶</a>';
         else if (key === 'close') next = '<button class="btn primary big block" data-write-log>투어 기록 작성 ▶</button>';
         else { const g = Store.get('guides', key.slice(2)); const n = g && nextGuide(g); if (n) next = `<a class="btn primary big block" href="#/play/g~${esc(n.id)}/0">다음: ${esc(n.variant ? `${App.stName(n.equip)} ${n.variant}` : n.title)} ▶</a>`; }
         return `<section class="run">${top}<div class="run-body done-body">
             <div class="done-mark" aria-hidden="true">✓</div>
-            <h2 class="run-st">${key === 'routine' ? '오늘 준비를 모두 마쳤습니다' : key === 'close' ? '정리를 모두 마쳤습니다' : '이 매뉴얼을 모두 마쳤습니다'}</h2>
+            <h2 class="run-st">${which ? `${(App.CATS[which] || {}).label}을(를) 모두 마쳤습니다` : '이 매뉴얼을 모두 마쳤습니다'}</h2>
             <p class="muted">‘다음’으로 넘긴 단계는 오늘 날짜로 완료 표시됩니다.</p>
             ${next}<a class="btn ghost big block" href="${back}">목록으로</a></div>
           <nav class="run-nav"><button class="btn ghost big" data-prev>‹ 이전</button><span></span></nav></section>`;

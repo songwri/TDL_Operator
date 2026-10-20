@@ -29,19 +29,28 @@
   const tourType = () => App.prefs.load().tourType || '일반';
   const fits = (m) => m.tourType === 'all' || !m.tourType || m.tourType === tourType();
 
-  // ───────── 루틴 구성: 공통 체크 · 가이드 · 현장 체크를 순서 번호로 섞는다 ─────────
+  // ───────── 준비 카테고리: 오더 업로드(PC) / 현장 준비 / 정리 ─────────
+  App.CATS = {
+    order: { label: '오더 업로드', desc: 'PC에서 하는 오더 작업 — AMR은 현장 셋팅을 먼저 한 뒤' },
+    field: { label: '현장 준비', desc: '공통 체크 → 로봇암 → AMR → 스마트글라스' },
+    close: { label: '정리 루틴', desc: '시연이 끝나면 설비별로 끄고 원위치' },
+  };
   App.routineEntries = (which) => {
-    const post = which === 'close';
-    const rk = post ? 'closeRoutine' : 'routine';
     const ent = [];
-    Store.where('manual', (m) => m.phase === (post ? 'post' : 'pre') && m.stationId === 'common' && fits(m))
-      .sort((a, b) => a.order - b.order)
-      .forEach((m, i) => ent.push({ type: 'note', item: m, phase: post ? 'post' : 'pre', n: post ? 900 + i : i / 100, group: post ? '마무리' : '공통 준비' }));
-    Store.all('guides').filter((g) => Number(g[rk]) > 0).forEach((g) => ent.push({
-      type: 'guide', guide: g, n: Number(g[rk]),
-      group: post ? '설비 정리' : g.kind === 'pc' ? 'PC 사전작업' : '현장 준비' }));
-    Store.where('manual', (m) => m.phase === 'pre' && m.section === 'field' && Number(m[rk]) > 0 && fits(m))
-      .forEach((m) => ent.push({ type: 'note', item: m, phase: 'pre', n: Number(m[rk]), group: post ? '설비 정리' : '현장 준비' }));
+    if (which === 'close') {
+      Store.all('guides').filter((g) => Number(g.closeRoutine) > 0)
+        .forEach((g) => ent.push({ type: 'guide', guide: g, n: Number(g.closeRoutine), group: '설비 정리' }));
+      Store.where('manual', (m) => m.phase === 'post' && m.stationId === 'common' && fits(m)).sort((a, b) => a.order - b.order)
+        .forEach((m, i) => ent.push({ type: 'note', item: m, phase: 'post', n: 900 + i, group: '마무리' }));
+      return ent.sort((a, b) => a.n - b.n);
+    }
+    if (which === 'field') {
+      Store.where('manual', (m) => m.phase === 'pre' && m.stationId === 'common' && fits(m)).sort((a, b) => a.order - b.order)
+        .forEach((m, i) => ent.push({ type: 'note', item: m, phase: 'pre', n: i / 100, group: '공통 체크' }));
+    }
+    Store.all('guides').filter((g) => (g.prepCat || '') === which && Number(g.routine) > 0)
+      .forEach((g) => ent.push({ type: 'guide', guide: g, n: Number(g.routine), optional: String(g.optional) === 'true',
+        group: which === 'order' ? '오더 업로드' : '설비 셋팅' }));
     return ent.sort((a, b) => a.n - b.n);
   };
   // 진행 상황: 가이드 단계 · 체크 항목
@@ -62,43 +71,48 @@
 
   // ───────── 상단 설비 선택 ─────────
   function tabsHtml(base, active) {
-    const tabs = [{ id: '', short: base === 'close' ? '정리 루틴' : '오늘 루틴' }].concat(App.equipTabs());
+    const tabs = [{ id: '', short: base === 'close' ? '정리 루틴' : '준비 홈' }].concat(App.equipTabs());
     return `<nav class="eq-tabs" aria-label="설비 선택">${tabs.map((t) => `<a href="#/${base}${t.id ? '/' + t.id : ''}" class="${t.id === active ? 'on' : ''}"${t.id === active ? ' aria-current="page"' : ''}>${esc(t.short)}</a>`).join('')}</nav>`;
   }
 
-  // ───────── 루틴 화면 ─────────
+  // ───────── 카테고리 카드 (오더 업로드 · 현장 준비 · 정리) ─────────
   function routineHtml(which) {
     const ent = App.routineEntries(which);
     let done = 0, total = 0, resume = -1;
     const rows = ent.map((e, i) => {
-      const p = App.entryProgress(e); done += p.done; total += p.total;
-      if (resume < 0 && p.done < p.total) resume = i;
+      const p = App.entryProgress(e);
+      if (!e.optional) { done += p.done; total += p.total; if (resume < 0 && p.done < p.total) resume = i; }
       return { e, p, i };
     });
     const groups = [];
     rows.forEach((r) => { const g = groups[groups.length - 1]; if (g && g.name === r.e.group) g.rows.push(r); else groups.push({ name: r.e.group, rows: [r] }); });
     const pct = total ? Math.round((done / total) * 100) : 0;
-    const key = which === 'close' ? 'close' : 'routine';
-    const label = which === 'close' ? '정리 루틴' : '오늘 준비 루틴';
+    const key = which === 'close' ? 'close' : `r~${which}`;
+    const c = App.CATS[which];
     const cta = total === 0 ? '' : done >= total
-      ? `<a class="btn ghost big block" href="#/play/${key}/0">✓ 모두 완료 — 처음부터 다시 보기</a>`
-      : `<a class="btn primary big block" href="#/play/${key}/@${resume}">${done ? '▶ 이어서 진행' : `▶ ${label} 시작`}</a>`;
-    return `<div class="hero card">
-        <div class="hero-top"><div><h2>${label}</h2><small class="muted">${Store.today()} · ${which === 'close' ? '시연이 끝나면 설비별로 끄고 원위치' : 'PC 사전작업 → 현장 준비 순서'}</small></div>
+      ? `<a class="btn ghost block" href="#/play/${key}/0">✓ 완료 — 다시 보기</a>`
+      : `<a class="btn primary big block" href="#/play/${key}/@${resume}">${done ? '▶ 이어서 진행' : `▶ ${c.label} 시작`}</a>`;
+    return `<section class="cat-card card">
+        <div class="hero-top"><div><h2>${c.label}</h2><small class="muted">${c.desc}</small></div>
           <div class="hero-pct"><b>${pct}</b><span>%</span></div></div>
         <div class="bar"><span style="width:${pct}%"></span></div>
         ${cta}
-        <button class="btn small ghost" data-reset>오늘 체크 초기화</button>
-      </div>
-      ${groups.map((g) => `<section class="rt-group"><h3 class="section-title">${esc(g.name)}</h3><ol class="rt-list">${g.rows.map(({ e, p, i }) => {
-        const title = e.type === 'guide' ? (e.guide.variant ? `${stName(e.guide.equip)} ${e.guide.variant}` : e.guide.title) : e.item.title;
-        const sub = e.type === 'guide' ? `${App.KIND_LABEL[e.guide.kind] || ''} · ${p.total}단계` : (e.item.stationId !== 'common' ? stName(e.item.stationId) + ' · 체크' : '체크');
-        return `<li><a class="rt-row${p.done >= p.total ? ' done' : ''}" href="#/play/${key}/@${i}">${ring(p.done, p.total)}
-          <span class="rt-body"><b>${esc(title)}</b><small>${esc(sub)}${e.type === 'guide' && p.done && p.done < p.total ? ` · ${p.done}/${p.total}` : ''}</small></span>
-          <span class="chev" aria-hidden="true">›</span></a>
-          ${e.type === 'note' ? App.editBtn(`data-edit-manual="${e.item.id}"`, '✎') : App.editBtn(`data-edit-guide="${e.guide.id}"`, '✎')}</li>`;
-      }).join('')}</ol></section>`).join('')}
-      ${App.editBtn(`data-add-manual="${which === 'close' ? 'post' : 'pre'}|common"`, '+ 공통 체크 추가')}`;
+        ${groups.map((g) => `${groups.length > 1 ? `<h3 class="cat-sub">${esc(g.name)}</h3>` : ''}<ol class="rt-list">${g.rows.map(({ e, p, i }) => {
+          const title = e.type === 'guide' ? (e.guide.variant ? `${stName(e.guide.equip)} ${e.guide.variant}` : e.guide.title) : e.item.title;
+          const sub = e.type === 'guide' ? `${p.total}단계${p.done && p.done < p.total ? ` · ${p.done}/${p.total}` : ''}` : '체크';
+          const href = e.optional ? `#/play/g~${esc(e.guide.id)}/0` : `#/play/${key}/@${i}`;
+          return `<li><a class="rt-row${p.done >= p.total ? ' done' : ''}${e.optional ? ' opt' : ''}" href="${href}">${ring(p.done, p.total)}
+            <span class="rt-body"><b>${esc(title)}${e.optional ? ' <span class="badge warn">필요 시</span>' : ''}</b>${e.type === 'guide' ? `<small>${esc(sub)}</small>` : ''}</span>
+            <span class="chev" aria-hidden="true">›</span></a>
+            ${e.type === 'note' ? App.editBtn(`data-edit-manual="${e.item.id}"`, '✎') : App.editBtn(`data-edit-guide="${e.guide.id}"`, '✎')}</li>`;
+        }).join('')}</ol>`).join('')}
+        ${which !== 'order' ? App.editBtn(`data-add-manual="${which === 'close' ? 'post' : 'pre'}|common"`, '+ 공통 체크 추가') : ''}
+      </section>`;
+  }
+
+  function prepHome() {
+    return `<div class="cat-grid">${routineHtml('order')}${routineHtml('field')}</div>
+      <p class="small muted">체크 상태는 이 기기에 오늘 날짜로 저장됩니다. <button class="btn small ghost" data-reset>오늘 체크 초기화</button></p>`;
   }
 
   // ───────── 설비 화면: 구분별 큰 버튼 ─────────
@@ -150,7 +164,7 @@
     const sid = arg && App.equipTabs().some((t) => t.id === arg) ? arg : '';
     return `<section class="page prep-page">
       <div class="hub-head"><h2 class="sr-only">${base === 'close' ? '정리' : '준비'}</h2>${tabsHtml(base, sid)}</div>
-      ${sid ? equipHtml(sid) : routineHtml(base === 'close' ? 'close' : 'prep')}
+      ${sid ? equipHtml(sid) : base === 'close' ? routineHtml('close') : prepHome()}
       ${!sid && base === 'close' ? logsHtml() : ''}
       ${!sid && base !== 'close' ? contactsHtml() : ''}
     </section>`;

@@ -147,7 +147,8 @@
       { key: 'kind', label: '구분', type: 'select', options: Object.entries(App.KIND_LABEL).filter(([k]) => k !== 'field') },
       { key: 'variant', label: '버튼 이름 (예: 입고, 출고, P2P — 비우면 제목)' },
       { key: 'optional', label: '필요할 때만 하는 매뉴얼', type: 'select', options: [['false', '아니요'], ['true', '예 (필요 시)']] },
-      { key: 'routine', label: '오늘 준비 루틴 순서 (비우면 루틴에서 빠짐)', type: 'number' },
+      { key: 'prepCat', label: '준비 카테고리', type: 'select', options: [['', '없음'], ['order', '오더 업로드'], ['field', '현장 준비']] },
+      { key: 'routine', label: '카테고리 안 순서 (비우면 이어서 진행에서 빠짐)', type: 'number' },
       { key: 'closeRoutine', label: '정리 루틴 순서 (비우면 빠짐)', type: 'number' },
       { key: 'stations', label: '투어 중 보여 줄 장소 (쉼표로 구분)', hint: '예: s9,s11 — 그 장소의 투어 화면 ‘체크’ 탭에 시연 · 참고 매뉴얼이 보입니다' },
     ], Object.assign({}, g, { optional: String(g.optional) }));

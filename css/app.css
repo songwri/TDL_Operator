@@ -584,3 +584,13 @@ body[data-view="play"] { padding-bottom: 0; }
 .narration .gloss, .transition .gloss { font-size: .72em; line-height: 1.55; color: var(--muted); margin: 0 0 .75em; letter-spacing: -.01em; word-break: keep-all; }
 .narration .nar-gap { display: block; height: .5em; }
 .narration .gloss .joke::before { content: ""; }
+/* 준비 홈: 오더 업로드 · 현장 준비 */
+.cat-grid { display: grid; gap: 16px; }
+@media (min-width: 900px) { .cat-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.cat-card { gap: 12px; }
+.cat-card h2 { margin: 0; font-size: var(--fs-xl); }
+.cat-card .bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.cat-card .bar span { display: block; height: 100%; background: var(--ok); }
+.cat-card .rt-row { box-shadow: none; padding: 12px; }
+.cat-sub { font-size: var(--fs-sm); color: var(--muted); margin: 4px 0 -4px; }
+.rt-row.opt { border-style: dashed; }

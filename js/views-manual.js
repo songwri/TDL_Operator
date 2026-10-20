@@ -114,7 +114,8 @@
         const doneN = tasks.filter((m) => checks[m.id]).length;
         return `<section class="mx-row card">
           <header class="mx-eq"><span class="st-no">${esc(st.no)}</span><span class="st-body"><b>${esc(st.name)}</b>
-            <small>${tasks.length ? `${doneN}/${tasks.length} 완료` : '체크 항목 없음'}</small></span></header>
+            <small>${tasks.length ? `${doneN}/${tasks.length} 완료` : '체크 항목 없음'}</small></span>
+            ${App.flowSlides(st.id, tourType).length > 1 ? `<a class="btn small primary flow-go" href="#/flow/${esc(st.id)}">▶ 이어서 진행</a>` : ''}</header>
           ${cols.map(([key, title, hint]) => {
             const its = items.filter((m) => preCol(m) === key);
             return `<div class="mx-cell"><h4 class="mx-label">${title}</h4>
@@ -124,6 +125,11 @@
         </section>`;
       }).join('')}
     </div>`;
+  }
+
+  function flowStartHtml(tourType) {
+    const first = preRows().find((st) => App.flowSlides(st.id, tourType).length > 1);
+    return first ? `<a class="btn primary big block flow-start" href="#/flow/${esc(first.id)}">▶ 설비별 준비 이어서 진행 — ${esc(first.name)}부터</a>` : '';
   }
 
   function commonList(phase, checks, tourType) {
@@ -158,6 +164,7 @@
         <div class="seg" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-mtype="${t}" class="${tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div></header>
       <div class="progress card"><div class="bar"><span style="width:${all.length ? Math.round((doneN / all.length) * 100) : 0}%"></span></div>
         <span><b>${doneN}</b> / ${all.length} 완료</span><button class="btn small ghost" data-mreset>오늘 체크 초기화</button></div>
+      ${isPre ? flowStartHtml(tourType) : ''}
       <div class="card"><h3>공통 ${isPre ? '준비' : '정리'}</h3>${commonList(phase, checks, tourType)}</div>
       <h3 class="section-title">설비별 ${isPre ? '준비' : '정리 (정리 · 전원 OFF · 확인)'}</h3>
       ${isPre ? matrixHtml(checks, tourType) : `<div class="equip-list">${equip.map((st) => equipmentCard(phase, st, checks, tourType)).join('')}</div>`}
@@ -293,6 +300,7 @@
     };
   }
 
+  App.preRows = preRows; App.preCol = preCol; App.preSub = preSub; App.isPreTask = isTask;
   App.views.pre = { render: () => page('pre'), mount: mount('pre') };
   App.views.post = { render: () => page('post'), mount: mount('post') };
 })();

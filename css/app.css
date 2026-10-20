@@ -567,3 +567,15 @@ body[data-view="play"] { padding-bottom: 0; }
 .shots { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); }
 .shots .shot-btn { aspect-ratio: auto; height: auto; }
 .shots .shot-btn img { height: auto; max-height: 60vh; }
+
+/* 진행 화면 상단의 얇은 순서 막대 */
+.flow-strip { display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 6px max(10px, env(safe-area-inset-left, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 57px; z-index: 9; }
+.flow-strip::-webkit-scrollbar { display: none; }
+.flow-strip button { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-xs); font-weight: 600;
+  padding: 5px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.flow-strip button.past { color: var(--ok); }
+.flow-strip button.past::before { content: "✓ "; }
+.flow-strip button.cur { background: var(--primary); color: var(--primary-ink); }
+.flow-strip button small { opacity: .8; font-weight: 500; }
+.flow-strip .fs-sep { flex: none; color: var(--line-strong); font-size: var(--fs-xs); }

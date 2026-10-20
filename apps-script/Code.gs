@@ -22,7 +22,7 @@ const IMAGE_FOLDER = 'TDL_manual_images';        // 매뉴얼 슬라이드 이�
 const IMAGE_ZIP = 'tdl-manual-images.zip';
 const TZ = 'Asia/Seoul';
 
-const CODE_VERSION = '2026-10-14.5';
+const CODE_VERSION = '2026-10-21.1';
 
 // 웹 앱 주소를 브라우저로 열면 이 화면이 나옵니다 — 배포·코드 버전·설정 여부 확인용 (비밀번호 값은 표시하지 않음)
 function doGet() {
@@ -58,6 +58,13 @@ function handlePost_(e) {
         return json_({ ok: true, data: loadAll_(), serverTime: now_() });
       case 'image':
         return json_(image_(req.name));
+      case 'images': {   // 여러 장을 한 번에 (요청 횟수를 줄여 빠르게)
+        const names = (Array.isArray(req.names) ? req.names : []).slice(0, 12);
+        const folder = imageFolder_(false);
+        const out = {};
+        names.forEach((n) => { out[n] = image_(n, folder); });
+        return json_({ ok: true, images: out });
+      }
       case 'checkEdit':
         if (!isEditor) Utilities.sleep(500);
         return json_({ ok: isEditor, error: isEditor ? '' : 'wrong_edit_password' });
@@ -276,9 +283,9 @@ function imageFolder_(create) {
 }
 
 // 앱이 요청한 매뉴얼 이미지를 base64로 돌려준다 (접속 비밀번호 확인 후에만 호출됨)
-function image_(name) {
+function image_(name, folderIn) {
   if (!/^[\w.-]+\.(jpg|jpeg|png)$/i.test(String(name || ''))) return { ok: false, error: 'bad_name' };
-  const folder = imageFolder_(false);
+  const folder = folderIn || imageFolder_(false);
   if (!folder) return { ok: false, error: 'image_folder_missing' };
   const it = folder.getFilesByName(name);
   if (!it.hasNext()) return { ok: false, error: 'image_not_found' };

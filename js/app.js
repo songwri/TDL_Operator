@@ -79,6 +79,11 @@
       this._active = view;
       main.innerHTML = view.render(decodeURIComponent(arg || ''));
       if (view.mount) view.mount(main, decodeURIComponent(arg || ''));
+      // 접속되면 잠시 뒤 매뉴얼 이미지를 이 기기에 미리 받아 둔다 (한 번만, 데이터 절약 모드면 건너뜀)
+      if (!this._prefetched && Store.status === 'ready' && Store.adapter.kind === 'sheet' && !(navigator.connection && navigator.connection.saveData)) {
+        this._prefetched = true;
+        setTimeout(() => Store.prefetch(Store.all('guideSteps').map((x) => x.image)), 2500);
+      }
       if (!this._keepScroll) window.scrollTo(0, 0);
       this._keepScroll = false;
     },

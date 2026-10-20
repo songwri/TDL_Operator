@@ -194,22 +194,64 @@
 
     // ───────── 매뉴얼 이미지 (구글 드라이브 → Apps Script, 기기에 캐시) ─────────
     images: {},
-    async image(name) {
-      if (!name) return null;
+    // 이미지 요청은 모아서 여러 장씩 받는다(요청 횟수가 곧 대기 시간). 화면에 보이는 것은 앞으로, 미리 받기는 뒤로
+    _q: [], _wait: {}, _active: 0, _noBatch: false,
+    async cached(name) {
       if (this.images[name]) return this.images[name];
-      const key = location.origin + '/__tdl_img/' + encodeURIComponent(name);
       try {
         if (window.caches) {
-          const hit = await (await caches.open(IMG_CACHE)).match(key);
+          const hit = await (await caches.open(IMG_CACHE)).match(location.origin + '/__tdl_img/' + encodeURIComponent(name));
           if (hit) return (this.images[name] = await hit.text());
         }
       } catch (e) { /* 캐시 사용 불가 — 무시 */ }
+      return null;
+    },
+    async image(name, low) {
+      if (!name) return null;
+      const c = await this.cached(name);
+      if (c) return c;
       if (this.adapter.kind !== 'sheet') throw new Error('시트에 연결해야 이미지를 볼 수 있습니다');
-      const res = await SheetAdapter.call({ action: 'image', name });
-      const url = `data:${res.mime || 'image/jpeg'};base64,${res.data}`;
-      this.images[name] = url;
-      try { if (window.caches) await (await caches.open(IMG_CACHE)).put(key, new Response(url)); } catch (e) { /* 무시 */ }
-      return url;
+      return new Promise((resolve, reject) => {
+        const first = !this._wait[name];
+        (this._wait[name] = this._wait[name] || []).push([resolve, reject]);
+        if (first) { if (low) this._q.push(name); else this._q.unshift(name); }
+        else if (!low) { const i = this._q.indexOf(name); if (i > 0) { this._q.splice(i, 1); this._q.unshift(name); } }
+        this._pump();
+      });
+    },
+    _pump() {
+      while (this._active < 3 && this._q.length) {
+        const batch = this._q.splice(0, this._noBatch ? 1 : 6);
+        this._active++;
+        this._fetchImages(batch).finally(() => { this._active--; this._pump(); });
+      }
+    },
+    async _fetchImages(batch) {
+      const done = (name, url, err) => {
+        (this._wait[name] || []).forEach(([res, rej]) => (err ? rej(err) : res(url)));
+        delete this._wait[name];
+      };
+      const keep = async (name, r) => {
+        if (!r || !r.ok) { const e = new Error((r && (r.message || r.error)) || '이미지 없음'); e.code = r && r.error; done(name, null, e); return; }
+        const url = `data:${r.mime || 'image/jpeg'};base64,${r.data}`;
+        this.images[name] = url;
+        try { if (window.caches) await (await caches.open(IMG_CACHE)).put(location.origin + '/__tdl_img/' + encodeURIComponent(name), new Response(url)); } catch (e) { /* 무시 */ }
+        done(name, url);
+      };
+      try {
+        if (this._noBatch) { for (const n of batch) await keep(n, await SheetAdapter.call({ action: 'image', name: n }).catch((e) => ({ ok: false, error: e.code, message: e.message }))); return; }
+        const res = await SheetAdapter.call({ action: 'images', names: batch });
+        for (const n of batch) await keep(n, res.images && res.images[n]);
+      } catch (e) {
+        if (e.code === 'unknown_action') { this._noBatch = true; this._q.unshift(...batch); return; }   // 예전 Code.gs — 한 장씩
+        batch.forEach((n) => done(n, null, e));
+      }
+    },
+    // 앞으로 볼 이미지를 미리 받아 둔다 (이미 있는 것은 건너뜀)
+    async prefetch(names) {
+      if (this.adapter.kind !== 'sheet') return;
+      const list = [...new Set(names.flatMap((n) => String(n || '').split(',')).map((x) => x.trim()).filter(Boolean))];
+      for (const n of list) { if (!(await this.cached(n))) this.image(n, true).catch(() => {}); }
     },
 
     onChange(fn) { this.listeners.push(fn); },

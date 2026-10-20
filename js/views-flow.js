@@ -65,7 +65,8 @@
             <small>${s.type === 'done' ? '완료' : `${i + 1} / ${total}`}</small></div>
           <details class="flow-toc"><summary class="icon-btn" aria-label="목차">☰</summary>${tocHtml(slides, i)}</details>
         </header>
-        <div class="run-progress"><span style="width:${Math.round((i / total) * 100)}%"></span></div>`;
+        <div class="run-progress"><span style="width:${Math.round((i / total) * 100)}%"></span></div>
+        ${stripHtml(key, slides, i)}`;
 
       if (s.type === 'done') {
         let next = '';
@@ -106,6 +107,11 @@
       App.loadShots(root);
       const key = this._key; const i = this._i;
       const { slides } = build(key);
+      const cur = root.querySelector('.flow-strip .cur');
+      if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
+      // 다음 화면들의 이미지를 미리 받아 둔다 (가까운 것부터)
+      const imgs = (from, to) => slides.slice(from, to).filter((x) => x.type === 'step').map((x) => x.step.image);
+      Store.prefetch(imgs(i + 1, i + 6).concat(imgs(i + 6, slides.length)));
       const next = () => {
         const s = slides[i];
         if (s.type === 'step') [s.step.id].concat(s.dups || []).forEach((id) => App.checks.setStep(id, true));
@@ -130,6 +136,29 @@
     },
     unmount() { if (this._keyh) { document.removeEventListener('keydown', this._keyh); this._keyh = null; } },
   };
+
+  // 상단 얇은 진행 막대: 루틴은 항목(가이드 · 체크) 단위, 가이드 하나는 단계 단위. 지금 위치와 다음에 올 것을 한눈에
+  function stripHtml(key, slides, cur) {
+    let chips;
+    if (key.startsWith('g~')) {
+      chips = slides.map((s, k) => (s.type === 'step' ? { k, t: s.step.title, n: s.gi } : null)).filter(Boolean)
+        .map((c) => ({ k: c.k, label: `<b>${c.n}</b> ${esc(c.t)}`, state: c.k < cur ? 'past' : c.k === cur ? 'cur' : '' }));
+    } else {
+      const items = [];
+      slides.forEach((s, k) => {
+        const t = s.ctx && s.ctx.title; if (!t) return;
+        const last = items[items.length - 1];
+        if (last && last.t === t) { last.end = k; return; }
+        items.push({ k, end: k, t, eq: s.ctx.equip });
+      });
+      chips = items.map((x) => {
+        const state = cur > x.end ? 'past' : cur >= x.k ? 'cur' : '';
+        const n = x.end - x.k + 1;
+        return { k: x.k, state, label: `${esc(x.t)}${n > 1 ? ` <small>${state === 'cur' ? `${cur - x.k + 1}/` : ''}${n}</small>` : ''}` };
+      });
+    }
+    return `<nav class="flow-strip" aria-label="진행 순서">${chips.map((c) => `<button data-jump="${c.k}" class="${c.state}"${c.state === 'cur' ? ' aria-current="step"' : ''}>${c.label}</button>`).join('<span class="fs-sep" aria-hidden="true">›</span>')}</nav>`;
+  }
 
   // 목차: 항목(가이드 · 체크)의 첫 화면
   function tocHtml(slides, cur) {

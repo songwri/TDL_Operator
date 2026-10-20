@@ -560,3 +560,10 @@ body[data-view="play"] { padding-bottom: 0; }
 .rt-body b, .fb-title { overflow-wrap: anywhere; }
 .hub-head .seg { flex: none; }
 .prep-page .card { overflow-x: auto; }
+/* 한 단계에 사진 여러 장: 큰 화면 캡처 + 작은 현장 사진 */
+.shots { display: grid; gap: 8px; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); align-items: start; }
+.shots.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.shots .shot { margin: 0; }
+.shots { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); }
+.shots .shot-btn { aspect-ratio: auto; height: auto; }
+.shots .shot-btn img { height: auto; max-height: 60vh; }

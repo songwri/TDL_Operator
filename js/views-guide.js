@@ -4,7 +4,13 @@
   const PHASE = new Proxy({}, { get: (o, k) => (App.KIND_LABEL || {})[k] || '' });
 
   // ───────── 매뉴얼 이미지 ─────────
-  App.shot = (name, alt) => name
+  // 이미지 이름을 쉼표로 여러 개 적으면 한 화면에 나란히 보여 준다 (예: 화면 캡처 + 현장 사진)
+  App.shot = (name, alt) => {
+    const list = String(name || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (list.length > 1) return `<div class="shots n${list.length}">${list.map((n) => one(n)).join('')}</div>${alt ? `<p class="small muted">${esc(alt)}</p>` : ''}`;
+    return one(list[0] || '', alt);
+  };
+  const one = (name, alt) => name
     ? `<figure class="shot" data-img="${esc(name)}"><button class="shot-btn" data-zoom="${esc(name)}" aria-label="${esc(alt || '매뉴얼 이미지')} 크게 보기"><span class="shot-ph">이미지 불러오는 중…</span></button>
         ${alt ? `<figcaption>${esc(alt)}</figcaption>` : ''}</figure>`
     : '';
@@ -125,7 +131,7 @@
       { key: 'title', label: '단계 제목', required: true },
       { key: 'body', label: '설명', type: 'textarea', rows: 8, hint: '한 줄에 하나. ①②③ 으로 시작하면 이미지의 번호와 맞춰 표시됩니다. 주소(https://…)는 링크가 됩니다.' },
       { key: 'note', label: '주의 (선택)', type: 'textarea', rows: 2 },
-      { key: 'image', label: '이미지 파일 이름 (선택)', placeholder: '예: m07.jpg', hint: '구글 드라이브 TDL_manual_images 폴더에 있는 파일 이름' },
+      { key: 'image', label: '이미지 파일 이름 (선택)', placeholder: '예: v052-1.jpg', hint: '구글 드라이브 TDL_manual_images 폴더에 있는 파일 이름. 여러 장이면 쉼표로 구분하면 나란히 보입니다' },
       { key: 'order', label: '순서', type: 'number' },
     ], s, id ? { danger: '삭제' } : null);
     if (!res) return;

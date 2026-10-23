@@ -27,7 +27,7 @@
         if (e.optional) return;   // ‘필요 시’ 매뉴얼은 이어서 진행에 넣지 않는다 (목록에서 따로 열기)
         if (e.type === 'guide') {
           const g = e.guide;
-          pushGuide(g, { group: e.group, title: g.variant ? `${App.stName(g.equip)} ${g.variant}` : g.title, equip: App.stName(g.equip) }, true);
+          pushGuide(g, { group: e.group, title: g.variant ? `${App.stName(g.equip)} ${g.variant}` : g.title, equip: App.stName(g.equip) }, which === 'field');   // 오더 업로드는 매뉴얼마다 Pantos View 접속부터 전부 보여 준다
         } else slides.push({ type: 'note', item: e.item, phase: e.phase, ctx: { group: e.group, title: e.item.title, equip: e.item.stationId === 'common' ? '' : App.stName(e.item.stationId) } });
       });
     } else if (key.startsWith('g~')) {

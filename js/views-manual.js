@@ -32,7 +32,7 @@
   // ───────── 준비 카테고리: 오더 업로드(PC) / 현장 준비 / 정리 ─────────
   App.CATS = {
     order: { label: '오더 업로드', desc: 'PC에서 하는 오더 작업 — AMR은 현장 셋팅을 먼저 한 뒤' },
-    field: { label: '현장 준비', desc: '공통 체크 → 로봇암 → AMR → 스마트글라스' },
+    field: { label: '현장 준비', desc: '로봇암 → AMR → 스마트글라스' },
     close: { label: '정리 루틴', desc: '시연이 끝나면 설비별로 끄고 원위치' },
   };
   App.routineEntries = (which) => {
@@ -43,10 +43,6 @@
       Store.where('manual', (m) => m.phase === 'post' && m.stationId === 'common' && fits(m)).sort((a, b) => a.order - b.order)
         .forEach((m, i) => ent.push({ type: 'note', item: m, phase: 'post', n: 900 + i, group: '마무리' }));
       return ent.sort((a, b) => a.n - b.n);
-    }
-    if (which === 'field') {
-      Store.where('manual', (m) => m.phase === 'pre' && m.stationId === 'common' && fits(m)).sort((a, b) => a.order - b.order)
-        .forEach((m, i) => ent.push({ type: 'note', item: m, phase: 'pre', n: i / 100, group: '공통 체크' }));
     }
     Store.all('guides').filter((g) => (g.prepCat || '') === which && Number(g.routine) > 0)
       .forEach((g) => ent.push({ type: 'guide', guide: g, n: Number(g.routine), optional: String(g.optional) === 'true',
@@ -110,8 +106,19 @@
       </section>`;
   }
 
+  // 공통 체크: 사진 매뉴얼 없이 눌러서 체크만 (오더 업로드 · 현장 준비 위에 얇게)
+  function commonBar() {
+    const items = Store.where('manual', (m) => m.phase === 'pre' && m.stationId === 'common' && fits(m)).sort((a, b) => a.order - b.order);
+    if (!items.length) return '';
+    const ck = App.checks.item('pre'); const n = items.filter((m) => ck[m.id]).length;
+    return `<section class="common-bar card"><div class="cb-head"><b>공통 체크</b><small class="muted">${n}/${items.length}</small></div>
+      <ul class="cb-list">${items.map((m) => `<li><label class="check"><input type="checkbox" data-mcheck="${m.id}"${ck[m.id] ? ' checked' : ''}>
+        <span>${esc(m.title)}${m.body ? `<small>${esc(m.body)}</small>` : ''}</span></label>${App.editBtn(`data-edit-manual="${m.id}"`, '✎')}</li>`).join('')}</ul>
+      ${App.editBtn('data-add-manual="pre|common"', '+ 공통 체크 추가')}</section>`;
+  }
+
   function prepHome() {
-    return `<div class="cat-grid">${routineHtml('order')}${routineHtml('field')}</div>
+    return `${commonBar()}<div class="cat-grid">${routineHtml('order')}${routineHtml('field')}</div>
       <p class="small muted">체크 상태는 이 기기에 오늘 날짜로 저장됩니다. <button class="btn small ghost" data-reset>오늘 체크 초기화</button></p>`;
   }
 

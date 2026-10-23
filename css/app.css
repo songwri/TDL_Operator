@@ -594,3 +594,11 @@ body[data-view="play"] { padding-bottom: 0; }
 .cat-card .rt-row { box-shadow: none; padding: 12px; }
 .cat-sub { font-size: var(--fs-sm); color: var(--muted); margin: 4px 0 -4px; }
 .rt-row.opt { border-style: dashed; }
+/* 공통 체크: 얇게, 눌러도 이동하지 않고 체크만 */
+.common-bar { padding: 10px 14px; gap: 6px; }
+.cb-head { display: flex; align-items: baseline; gap: 8px; }
+.cb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+@media (min-width: 900px) { .cb-list { grid-template-columns: 1fr 1fr; column-gap: 24px; } }
+.cb-list li { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cb-list .check { padding: 8px 0; flex: 1; min-width: 0; font-size: var(--fs-md); }
+.cb-list .check small { display: block; color: var(--muted); font-size: var(--fs-xs); }

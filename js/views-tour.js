@@ -3,19 +3,29 @@
   const { esc, $, $$, narration, badgeRecent, form, requireUnlock, toast } = UI;
 
   // ───────── 장소 상세 패널 조각 (상세 화면과 투어 모드에서 공용) ─────────
+  // 대본 4가지: 언어(한국어·English) × 듣는 분(처음 듣는 분·물류 업계). 비어 있으면 다른 쪽으로 대신
+  const scriptOf = (st, prefs) => {
+    const easy = prefs.level !== 'pro';
+    if (prefs.lang === 'en') return easy ? (st.scriptEnEasy || st.scriptEn) : (st.scriptEn || st.scriptEnEasy);
+    return easy ? (st.scriptEasy || st.script) : (st.script || st.scriptEasy);
+  };
+  App.modeLabel = (prefs) => `${prefs.lang === 'en' ? 'English' : '한국어'} · ${prefs.level === 'pro' ? '물류 업계' : '처음 듣는 분'}`;
+
   const Panels = {
     // 한국어 / English 전환 + 영문 농담 켜기·끄기 (투어 설정 · 장소 상세 · 투어 모드 공용)
     langCtl(prefs) {
       const en = prefs.lang === 'en';
       return `<div class="seg" role="group" aria-label="안내 언어">
           <button data-lang="ko" class="${en ? '' : 'on'}">한국어</button><button data-lang="en" class="${en ? 'on' : ''}">English</button></div>
+        <div class="seg" role="group" aria-label="듣는 분">
+          <button data-level="easy" class="${prefs.level === 'pro' ? '' : 'on'}">처음 듣는 분</button><button data-level="pro" class="${prefs.level === 'pro' ? 'on' : ''}">물류 업계</button></div>
         ${en ? `<button class="btn small ghost joke-toggle${prefs.gloss === false ? '' : ' on'}" data-gloss aria-pressed="${prefs.gloss === false ? 'false' : 'true'}">가 한글 뜻</button>` : ''}
         ${en ? `<button class="btn small ghost joke-toggle${prefs.joke === false ? '' : ' on'}" data-joke aria-pressed="${prefs.joke === false ? 'false' : 'true'}">😄 농담</button>` : ''}`;
     },
 
     narration(st, prefs, opts) {
       const en = prefs.lang === 'en';
-      const text = en ? st.scriptEn : st.script;
+      const text = scriptOf(st, prefs);
       const empty = en ? '영문 대본이 아직 없습니다. “✎ 대사 수정”에서 추가할 수 있습니다.' : '대사가 아직 없습니다.';
       return `<div class="nar-toolbar">
           ${Panels.langCtl(prefs)}
@@ -164,8 +174,10 @@
       const res = await form(`${st.no}. ${st.name} — 대사 수정`, [
         { key: 'name', label: '장소 이름' },
         { key: 'minutes', label: '목표 시간(분)', type: 'number' },
-        { key: 'script', label: '대사 (한국어)', type: 'textarea', rows: 10, hint: '[소제목] 한 줄은 구간 제목, 줄 맨 앞 (영상 Play) 같은 괄호는 행동 칩으로 보입니다.' },
-        { key: 'scriptEn', label: '대사 (English)', type: 'textarea', rows: 10, hint: '농담은 {{ 이렇게 }} 감싸면 “농담 넣기/빼기” 스위치로 켜고 끌 수 있습니다. [ ] 는 안내 표시(소리 내어 읽지 않음).' },
+        { key: 'scriptEasy', label: '한국어 — 처음 듣는 분', type: 'textarea', rows: 8, hint: '[소제목] 한 줄은 구간 제목, 줄 맨 앞 (영상 Play) 같은 괄호는 행동 칩으로 보입니다.' },
+        { key: 'script', label: '한국어 — 물류 업계', type: 'textarea', rows: 8 },
+        { key: 'scriptEnEasy', label: 'English — 처음 듣는 분', type: 'textarea', rows: 8, hint: '영문 문장 줄 아래에 ‘> 한글 뜻’ 줄. 농담은 {{ 이렇게 }} 감싸면 켜고 끌 수 있습니다.' },
+        { key: 'scriptEn', label: 'English — 물류 업계', type: 'textarea', rows: 8 },
         { key: 'tips', label: '가이드 팁 (주의사항)', type: 'textarea', rows: 3 },
       ], st);
       if (res) Store.upsert('stations', Object.assign({}, st, res));
@@ -245,6 +257,7 @@
       if (!t) return;
       const d = t.dataset;
       if (d.lang) { const p = App.prefs.load(); p.lang = d.lang; App.prefs.save(p); App.rerender(); }
+      else if (d.level) { const p = App.prefs.load(); p.level = d.level; App.prefs.save(p); App.rerender(); }
       else if ('joke' in d) { const p = App.prefs.load(); p.joke = p.joke === false; App.prefs.save(p); App.rerender(); }
       else if ('gloss' in d) { const p = App.prefs.load(); p.gloss = p.gloss === false; App.prefs.save(p); App.rerender(); }
       else if (d.font) { const p = App.prefs.load(); p.font = Math.max(14, Math.min(30, (p.font || 18) + Number(d.font) * 2)); App.prefs.save(p); App.rerender(); }
@@ -310,7 +323,7 @@
             <div class="seg big" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-type="${t}" class="${prefs.tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div>
             <span class="route-name muted">${esc(route.name)}</span>
           </div>
-          <div class="row lang-row"><span class="muted small">안내 언어</span>${Panels.langCtl(prefs)}</div>
+          <div class="row lang-row"><span class="muted small">안내 모드</span>${Panels.langCtl(prefs)}</div>
           <div class="row summary"><span>정거장 <b>${stops.length}</b>곳 · 예상 <b>${App.minutesOf(route)}</b>분</span>
             <a class="btn primary big" href="#/run">▶ 투어 모드 시작</a></div>
           ${route.description ? `<small class="muted">${esc(route.description)}</small>` : ''}
@@ -337,6 +350,8 @@
           App.prefs.save(p); App.rerender();
         } else if (t.dataset.lang) {
           p.lang = t.dataset.lang; App.prefs.save(p); App.rerender();
+        } else if (t.dataset.level) {
+          p.level = t.dataset.level; App.prefs.save(p); App.rerender();
         } else if ('joke' in t.dataset) {
           p.joke = p.joke === false; App.prefs.save(p); App.rerender();
         } else if ('gloss' in t.dataset) {
@@ -405,6 +420,25 @@
   };
   const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
+  // 투어 모드를 시작할 때 안내 모드(언어 × 듣는 분)를 먼저 고른다
+  const MODES = [['ko', 'easy', '한국어', '처음 듣는 분', '물류를 처음 접하는 고객 — 쉬운 말과 비유'], ['ko', 'pro', '한국어', '물류 업계', '물류 유관 고객 — 업계 용어와 수치'],
+    ['en', 'easy', 'English', 'General', '외국 고객, 물류 비전문가'], ['en', 'pro', 'English', 'Industry', '외국 물류 실무자 — 현지 업계 용어']];
+  function modePicker(route, prefs) {
+    return `<section class="run"><header class="run-top"><button class="icon-btn" data-exit aria-label="투어 모드 종료">✕</button>
+        <div class="run-title"><b>${esc(route.name)}</b><small>안내 모드 선택</small></div><span class="icon-btn"></span></header>
+      <div class="run-body mode-pick"><h2 class="run-st">어떤 모드로 안내할까요?</h2>
+        <p class="muted small">투어 중에도 대사 위의 버튼으로 바꿀 수 있습니다.</p>
+        <div class="mode-grid">${MODES.map(([l, v, a, b, d]) => `<button class="mode-btn${prefs.lang === l && (prefs.level || 'easy') === v ? ' on' : ''}" data-mode="${l}|${v}">
+          <b>${a}</b><span>${b}</span><small>${d}</small></button>`).join('')}</div></div></section>`;
+  }
+  // 이노베이션필드 설비 바로가기: 동선이 바뀌어도 설비 설명을 바로 찾도록
+  const SHORT = { s6: '로봇암', s7: '스마트글라스', s8: 'AMR', s9: 'HAIPICK', s10: '4WAY', s11: '3D 소터', s12: '특송' };
+  function quickJump(stops, idx) {
+    const list = stops.map((id, i) => ({ id, i, st: Store.get('stations', id) })).filter((x) => x.st && x.st.zone !== '비전홀');
+    if (!list.length) return '';
+    return `<nav class="quick-jump" aria-label="설비 바로가기">${list.map((x) => `<button data-jump="${x.i}" class="${x.i === idx ? 'on' : ''}"><b>${esc(x.st.no)}</b> ${esc(SHORT[x.id] || x.st.name)}</button>`).join('')}</nav>`;
+  }
+
   App.views.run = {
     nav: 'tour',
     render() {
@@ -412,6 +446,7 @@
       const route = App.currentRoute();
       const stops = App.routeStops(route);
       const s = run.load();
+      if (!s.modeSet) return modePicker(route, prefs);
       const done = s.idx >= stops.length;
       const st = done ? null : Store.get('stations', stops[s.idx]);
       const total = App.minutesOf(route);
@@ -423,7 +458,8 @@
         <div class="run-progress"><span style="width:${Math.round((Math.min(s.idx, stops.length) / stops.length) * 100)}%"></span></div>`;
       if (done) {
         const en = prefs.lang === 'en';
-        const closing = (en ? (route.closingEn || '') : (route.closing || '')).replace(/\{가이드\}/g, en ? '000' : '(본인 이름)');
+        const enText = prefs.level === 'pro' ? (route.closingEn || route.closingEnEasy) : (route.closingEnEasy || route.closingEn);
+        const closing = (en ? (enText || '') : (route.closing || '')).replace(/\{가이드\}/g, en ? '000' : '(본인 이름)');
         return `<section class="run">${top}
           <div class="run-body"><h2 class="run-st">투어 마무리</h2>
             <div class="nar-toolbar">${Panels.langCtl(prefs)}</div>
@@ -436,6 +472,7 @@
       const left = st.minutes * 60000 - (Date.now() - s.stepStart);
       return `<section class="run">${top}
         <div class="run-body">
+          ${quickJump(stops, s.idx)}
           <details class="run-map"><summary>도면 보기</summary>${FloorPlan.render({ stations: Store.all('stations'), points: App.routePoints(route), activeId: st.id, dimOthers: true })}</details>
           <div class="run-head"><span class="st-no big${st.optional ? ' opt' : ''}">${esc(st.no)}</span>
             <div><h2 class="run-st">${esc(st.name)}</h2><small class="muted">목표 ${esc(st.minutes)}분 · <span data-timer="step" class="${left < 0 ? 'warn-text' : ''}">${left < 0 ? '+' + mmss(-left) + ' 초과' : mmss(left) + ' 남음'}</span></small></div></div>
@@ -454,6 +491,8 @@
         const t = e.target.closest('button,a'); if (!t) return;
         const stops = App.routeStops(App.currentRoute());
         if (t.dataset.tab !== undefined) { run.save(); return; }
+        if (t.dataset.mode) { const [l, v] = t.dataset.mode.split('|'); const p = App.prefs.load(); p.lang = l; p.level = v; App.prefs.save(p); s.modeSet = true; s.start = Date.now(); s.stepStart = Date.now(); run.save(); App.render(); return; }
+        if (t.dataset.jump !== undefined) { s.idx = Number(t.dataset.jump); s.stepStart = Date.now(); s.tab = 'nar'; run.save(); App.render(); return; }
         if ('next' in t.dataset) { s.idx = Math.min(stops.length, s.idx + 1); s.stepStart = Date.now(); s.tab = 'nar'; run.save(); App.render(); }
         else if ('prev' in t.dataset) { s.idx = Math.max(0, s.idx - 1); s.stepStart = Date.now(); s.tab = 'nar'; run.save(); App.render(); }
         else if ('exit' in t.dataset) { if (confirm('투어 모드를 끝낼까요? 진행 위치가 초기화됩니다.')) { run.reset(); App.navigate('#/tour'); } }

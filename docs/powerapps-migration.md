@@ -5,12 +5,12 @@ SharePoint 목록(또는 Dataverse 테이블)으로 가져오면 됩니다. 모�
 
 | 목록 | 열 | 비고 |
 |---|---|---|
-| **stations** 장소 | id, no, name, zone(비전홀/이노베이션필드/연계구간), x, y(도면 좌표 0–780 × 0–900), minutes, equipment(예/아니요), optional, script(한국어 대사, 여러 줄), scriptEn(영문 대사 — {{농담}} 표시 포함), tips, order | 도면 핀 위치와 나레이션 |
+| **stations** 장소 | id, no, name, zone(비전홀/이노베이션필드/연계구간), x, y(도면 좌표 0–780 × 0–900), minutes, equipment(예/아니요), optional, script(한국어·물류 업계), scriptEasy(한국어·처음 듣는 분), scriptEn(English·업계), scriptEnEasy(English·일반) — 영문은 “> 한글 뜻” 줄과 {{농담}} 포함, tips, order | 도면 핀 위치와 나레이션 |
 | **actions** 장소별 행동 | id, stationId→stations, text, tourType(all/일반/VIP), order | 체크 탭 |
 | **videos** 영상 | id, stationId, name, purpose, note | |
 | **specs** 설비 스펙 | id, stationId, group(한 장소에 설비가 여럿일 때, 예: 휴머노이드), field, value, status(확정/확인필요), note, order | 행 하나 = 스펙 한 칸. 항목 목록은 settings.specFields |
 | **qa** 질문·답변 | id, stationId, topic, question, answer, common(예/아니요), status, source, createdAt, createdBy | |
-| **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing, closingEn | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
+| **routes** 동선 | id, name, tourType, description, points(JSON 텍스트), closing, closingEn(업계), closingEnEasy(일반) | points = `[{x,y,stop}]`, stop이 있는 점이 정거장 |
 | **transitions** 동선별 이동 멘트 | id, routeId→routes, fromStationId, toStationId, text, textEn, status | 같은 장소라도 동선마다 다른 멘트 |
 | **manual** 체크 항목 | id, phase(pre/post), stationId(설비 id 또는 common), section(check 공통 · field 현장 체크), title, body, tourType, routine(오늘 준비 루틴 순서), closeRoutine, order | 공통 체크와 현장 체크만. 설비 절차는 guides |
 | **guides** 설비별 매뉴얼 | id, title, equip(설비 id), kind(pc PC 사전작업 / prep 시연 준비 / demo 시연 / close 정리 / ref 참고), variant(버튼 이름: 입고·출고·P2P 등), optional(필요 시), prepCat(준비 카테고리: order 오더 업로드 · field 현장 준비), routine(카테고리 안 순서), closeRoutine(정리 루틴 순서), stations(투어 중 보여 줄 장소), summary, order | 시연 매뉴얼 v3.1의 구분 그대로 |

@@ -323,7 +323,6 @@
             <div class="seg big" role="group" aria-label="투어 유형">${['일반', 'VIP'].map((t) => `<button data-type="${t}" class="${prefs.tourType === t ? 'on' : ''}">${t === '일반' ? '일반 고객' : 'VIP'}</button>`).join('')}</div>
             <span class="route-name muted">${esc(route.name)}</span>
           </div>
-          <div class="row lang-row"><span class="muted small">안내 모드</span>${Panels.langCtl(prefs)}</div>
           <div class="row summary"><span>정거장 <b>${stops.length}</b>곳 · 예상 <b>${App.minutesOf(route)}</b>분</span>
             <a class="btn primary big" href="#/run">▶ 투어 모드 시작</a></div>
           ${route.description ? `<small class="muted">${esc(route.description)}</small>` : ''}

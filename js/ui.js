@@ -9,6 +9,8 @@
     return html.replace(/(^|[^\d.,])(0{2,})(?![\d.,])/g, '$1<mark class="ph" title="매뉴얼 미기재 값 — 확인 필요">$2</mark>');
   }
   const CUE = /Play|시연|오픈|정위치|포인터|가리키|이동하면서|가면서/;
+  // 인솔 행동 메모 줄 (손님께 읽지 않음): 따로 한 줄, 흐리게
+  const ACT = /^\((정위치|착석 안내|이동|이동하면서|정리)\)/;
 
   /** 나레이션 서식: [구간 제목] 줄은 소제목, (행동 지시)는 칩으로 */
   function narration(text, opts) {
@@ -24,7 +26,7 @@
       const line = raw.trim();
       const prev = lines[lines.length - 1];
       const startsNew = !line || /^[\[(（{>\-•※]/.test(line) || /^\d+\)/.test(line);
-      if (prev && line && !startsNew && !prev.startsWith('>') && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]}]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
+      if (prev && line && !startsNew && !prev.startsWith('>') && !ACT.test(prev) && !/^\[[^\]]+\]$/.test(prev) && !/[.?!。)\]}]$/.test(prev)) lines[lines.length - 1] = prev + ' ' + line;
       else lines.push(line);
     });
     return lines.map((raw) => {
@@ -38,6 +40,7 @@
       }
       const head = line.match(/^\[([^\]]+)\]$/);
       if (head) return `<h4 class="nar-seg">${esc(head[1])}</h4>`;
+      const act = ACT.test(line);
       let h = esc(line);
       h = h.replace(/\{\{([\s\S]+?)\}\}/g, '<span class="joke" title="농담 — 상황에 따라 빼도 됩니다">$1</span>');
       h = h.replace(/\[([^\]]{1,60})\]/g, '<span class="cue">$1</span>');
@@ -46,7 +49,7 @@
         return atStart || CUE.test(inner) ? `${pre}<span class="cue">${inner}</span>` : m;
       });
       h = h.replace(/^-([^-]+)-/, '<span class="cue">$1</span>');
-      return `<p>${markPlaceholders(h)}</p>`;
+      return `<p${act ? ' class="nar-act"' : ''}>${markPlaceholders(h)}</p>`;
     }).join('');
   }
 

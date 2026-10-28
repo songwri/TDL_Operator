@@ -57,6 +57,7 @@
     const link = (t) => esc(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     const lines = String(text || '').split('\n').map((l) => l.trim()).filter(Boolean);
     return `<ol class="g-lines">${lines.map((l) => {
+      if (l.startsWith('!!')) return `<li class="g-alert" role="alert"><span>${link(l.replace(/^!!\s*/, ''))}</span></li>`;
       const m = l.match(/^([①-⑳])\s*(.*)$/);
       return m ? `<li><span class="g-no">${m[1]}</span><span>${link(m[2])}</span></li>` : `<li class="plain"><span>${link(l)}</span></li>`;
     }).join('')}</ol>`;
